@@ -130,5 +130,6 @@ dist
 .pnp.*
 
 
-database/*
+database/
 postgres-latest.dmp
+build/
