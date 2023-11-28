@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as fuzzy from 'fuzzy';
 import AppConfig from '../config';
 
 interface SolarSystem {
@@ -17,7 +18,7 @@ interface Jump {
 }
 
 class System {
-  public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null;    // systems data cache
+  public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null; // systems data cache
 
   private static loadData(): void {
     if (!System.jsonData) {
@@ -27,13 +28,37 @@ class System {
     }
   }
 
-  static findSystemsWithinRange(startingSystemName: string, jumps: number): string[] {
+  static fuzzySearchSystemByName(query: string): string[] {
     // Load data if not already loaded
     System.loadData();
 
-    // Find the starting system by name
+    const systemNames: string[] = System.jsonData!.solarSystems.map((system) => system.name);
+
+    // Use fuzzy matching to find similar system names
+    const results = fuzzy.filter(query, systemNames);
+
+    // Extract system names from fuzzy search results
+    const fuzzyMatchedSystemNames: string[] = results.map((result) => result.original);
+
+    return fuzzyMatchedSystemNames;
+  }
+
+  private static calculateDistance(system1: SolarSystem, system2: SolarSystem): number {
+    const distance = Math.sqrt(
+      Math.pow(system2.x - system1.x, 2) +
+      Math.pow(system2.y - system1.y, 2) +
+      Math.pow(system2.z - system1.z, 2)
+    );
+
+    return distance;
+  }
+
+  static findSystemsWithinRange(startingSystemName: string, lightyears: number): string[] {
+    // Load data if not already loaded
+    System.loadData();
+
     const startingSystem: SolarSystem | undefined = System.jsonData!.solarSystems.find(
-      system => system.name === startingSystemName
+      (system) => system.name === startingSystemName
     );
 
     if (!startingSystem) {
@@ -41,36 +66,74 @@ class System {
       return [];
     }
 
-    // Find systems within the specified number of jumps
-    const reachableSystems: number[] = [];
+    const reachableSystems: SolarSystem[] = System.jsonData!.solarSystems.filter((system) => {
+      if (system.id === startingSystem.id) {
+        return true; // Include the starting system itself
+      }
 
-    function findReachableSystems(currentSystemId: number, jumpsLeft: number): void {
-      if (jumpsLeft === 0) {
+      if (system.security > 0.4) {
+        return false;
+      }
+
+      const distance = System.calculateDistance(startingSystem, system);
+      const distanceInLightyears = distance * (3.26 / 0.0635);
+
+      return distanceInLightyears <= lightyears;
+    });
+
+    const systemNamesInJumps: string[] = reachableSystems.map((system) => system.name);
+    return systemNamesInJumps;
+  }
+
+  static findSystemsWithStargateJumps(startingSystemName: string, jumps: number): string[] {
+    // Load data if not already loaded
+    System.loadData();
+
+    const startingSystem: SolarSystem | undefined = System.jsonData!.solarSystems.find(
+      (system) => system.name === startingSystemName
+    );
+
+    if (!startingSystem) {
+      console.log(`Starting system with name ${startingSystemName} not found.`);
+      return [];
+    }
+
+    function findReachableSystems(
+      currentSystemId: number,
+      jumpsLeft: number,
+      visited: Set<number>,
+      path: number[],
+      reachableSystems: number[]
+    ): void {
+      if (jumpsLeft === 0 || visited.has(currentSystemId)) {
         return;
       }
 
-      const connectedSystems: number[] = System.jsonData!.jumps
-        .filter(jump => jump.from === currentSystemId)
-        .map(jump => jump.to);
+      visited.add(currentSystemId);
+      path.push(currentSystemId);
 
-      connectedSystems.forEach(systemId => {
-        if (!reachableSystems.includes(systemId)) {
+      const connectedSystems: number[] = System.jsonData!.jumps
+        .filter((jump) => jump.from === currentSystemId)
+        .map((jump) => jump.to);
+
+      connectedSystems.forEach((systemId) => {
+        if (!path.includes(systemId)) {
           reachableSystems.push(systemId);
-          findReachableSystems(systemId, jumpsLeft - 1);
+          findReachableSystems(systemId, jumpsLeft - 1, visited, [...path], reachableSystems);
         }
       });
     }
 
-    findReachableSystems(startingSystem.id, jumps);
+    const reachableSystems: number[] = [];
+    const visited = new Set<number>();
+    const path: number[] = [];
+    findReachableSystems(startingSystem.id, jumps, visited, path, reachableSystems);
 
-    // Map system IDs to actual system objects
-    const systemsInJumps: SolarSystem[] = System.jsonData!.solarSystems.filter(system =>
+    const systemsInJumps: SolarSystem[] = System.jsonData!.solarSystems.filter((system) =>
       reachableSystems.includes(system.id)
     );
 
-    // Extract system names
-    const systemNamesInJumps: string[] = systemsInJumps.map(system => system.name);
-
+    const systemNamesInJumps: string[] = systemsInJumps.map((system) => system.name);
 
     if (!systemNamesInJumps.includes(startingSystemName)) {
       systemNamesInJumps.push(startingSystemName);

@@ -21,14 +21,25 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 app.post('/systems', (req: Request, res: Response) => {
-    const { system, jumps } = req.body;
-    const systems = System.findSystemsWithinRange(system, parseInt(jumps));
+    const { system, range } = req.body;
+    const systems = System.findSystemsWithinRange(system, parseFloat(range));
     res.send({ data: { systems } });
-})
+});
 
+app.post('/stargateSystems', (req: Request, res: Response) => {
+    const { system, jumps } = req.body;
+    const systems = System.findSystemsWithStargateJumps(system, parseInt(jumps));
+    res.send({ data: { systems } });
+});
 app.post('/graph', (req: Request, res: Response) => {
     const { systems } = req.body;
     const systemsData = System.getConnectedSystems(systems);
     const graph = Graph.applyForceDirectedLayout(systemsData);
     res.send({ data: { graph } });
-})
+});
+
+app.post('/search', (req: Request, res: Response) => {
+    const { query } = req.body;
+    const matchedSystemNames = System.fuzzySearchSystemByName(query);
+    res.send({ data: { matchedSystemNames } });
+});
