@@ -17,7 +17,7 @@ interface Jump {
 }
 
 class System {
-  private static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null;    // systems data cache
+  public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null;    // systems data cache
 
   private static loadData(): void {
     if (!System.jsonData) {
@@ -71,7 +71,43 @@ class System {
     // Extract system names
     const systemNamesInJumps: string[] = systemsInJumps.map(system => system.name);
 
+
+    if (!systemNamesInJumps.includes(startingSystemName)) {
+      systemNamesInJumps.push(startingSystemName);
+    }
+
     return systemNamesInJumps;
+  }
+
+  static getConnectedSystems(systemNames: string[]): { systemId: number; systemName: string; connectedTo: string[] }[] {
+    // Load data if not already loaded
+    System.loadData();
+
+    const result: { systemId: number; systemName: string; connectedTo: string[] }[] = [];
+
+    systemNames.forEach((systemName) => {
+      const system = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === systemName);
+
+      if (system) {
+        const connectedTo = System.getConnectedTo(system.id);
+        result.push({ systemId: system.id, systemName, connectedTo });
+      } else {
+        console.log(`System with name ${systemName} not found.`);
+      }
+    });
+
+    return result;
+  }
+
+  private static getConnectedTo(systemId: number): string[] {
+    const connectedSystems = System.jsonData!.jumps
+      .filter((jump) => jump.from === systemId)
+      .map((jump) => {
+        const connectedSystem = System.jsonData!.solarSystems.find((system) => system.id === jump.to);
+        return connectedSystem ? connectedSystem.name : '';
+      });
+
+    return connectedSystems.filter(Boolean) as string[];
   }
 }
 
