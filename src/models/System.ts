@@ -53,6 +53,17 @@ class System {
     return distance;
   }
 
+  static findSystemsInRegion(regionName: string): string[] {
+    // Load data if not already loaded
+    System.loadData();
+
+    const systemsInRegion: string[] = System.jsonData!.solarSystems.filter(
+      (system) => system.region.toLowerCase() === regionName.toLowerCase()
+    ).map(system => system.name);
+
+    return systemsInRegion;
+  }
+
   static findSystemsWithinRange(startingSystemName: string, lightyears: number): string[] {
     // Load data if not already loaded
     System.loadData();
@@ -62,7 +73,6 @@ class System {
     );
 
     if (!startingSystem) {
-      console.log(`Starting system with name ${startingSystemName} not found.`);
       return [];
     }
 
@@ -94,7 +104,6 @@ class System {
     );
 
     if (!startingSystem) {
-      console.log(`Starting system with name ${startingSystemName} not found.`);
       return [];
     }
 
@@ -154,8 +163,6 @@ class System {
       if (system) {
         const connectedTo = System.getConnectedTo(system.id);
         result.push({ systemId: system.id, systemName, connectedTo });
-      } else {
-        console.log(`System with name ${systemName} not found.`);
       }
     });
 

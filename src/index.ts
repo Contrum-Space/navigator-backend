@@ -21,16 +21,20 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 app.post('/systems', (req: Request, res: Response) => {
-    const { system, range } = req.body;
-    const systems = System.findSystemsWithinRange(system, parseFloat(range));
+    const { system, stargateJumps, lightyears, jumpDriveRange, mode } = req.body;
+    let systems: string[] = [];
+    if (mode === 'stargate') {
+        systems = System.findSystemsWithStargateJumps(system, parseInt(stargateJumps));
+    }
+    else if (mode === 'lightyears') {
+        systems = System.findSystemsWithinRange(system, parseFloat(lightyears));
+    }
+    else if (mode === 'jump drive') {
+        systems = System.findSystemsWithinRange(system, parseFloat(jumpDriveRange));
+    }
     res.send({ data: { systems } });
 });
 
-app.post('/stargateSystems', (req: Request, res: Response) => {
-    const { system, jumps } = req.body;
-    const systems = System.findSystemsWithStargateJumps(system, parseInt(jumps));
-    res.send({ data: { systems } });
-});
 app.post('/graph', (req: Request, res: Response) => {
     const { systems } = req.body;
     const systemsData = System.getConnectedSystems(systems);
