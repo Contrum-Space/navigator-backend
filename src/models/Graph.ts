@@ -18,7 +18,7 @@ type GraphData = {
 }[]
 
 class Graph {
-    static applyForceDirectedLayout(graphData: GraphData): { nodes: Node[]; edges: Edge[] } {
+    static generateGraph(graphData: GraphData): { nodes: Node[]; edges: Edge[] } {
         const nodes: Node[] = [];
         const edges: Edge[] = [];
         const addedEdges: Set<string> = new Set();

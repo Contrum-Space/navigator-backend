@@ -3,6 +3,7 @@ import cors from 'cors';
 import express, { Request, Response } from 'express';
 import AppConfig from './config';
 import logger from './logger';
+import ESI from './models/ESI';
 import Graph from './models/Graph';
 import System from './models/System';
 
@@ -11,6 +12,8 @@ AppConfig.getConfig();
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+
+ESI.getSystemData();
 
 app.listen(AppConfig.config?.port, () => {
     logger.info(`Server online on port ${AppConfig.config?.port}`);
@@ -38,8 +41,14 @@ app.post('/systems', (req: Request, res: Response) => {
 app.post('/graph', (req: Request, res: Response) => {
     const { systems } = req.body;
     const systemsData = System.getConnectedSystems(systems);
-    const graph = Graph.applyForceDirectedLayout(systemsData);
+    const graph = Graph.generateGraph(systemsData);
     res.send({ data: { graph } });
+});
+
+app.post('/data', (req: Request, res: Response) => {
+    const { systems, origin } = req.body;
+    const systemsData = System.getKillsAndJumpsForSystems(systems, origin);
+    res.send({ data: { systemsData } });
 });
 
 app.post('/search', (req: Request, res: Response) => {

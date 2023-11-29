@@ -17,14 +17,29 @@ interface Jump {
   to: number;
 }
 
+interface SystemData {
+  system_id: number;
+  npc_kills: number;
+  ship_kills: number;
+  pod_kills: number;
+  ship_jumps: number;
+}
+
 class System {
   public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null; // systems data cache
+  public static systemsData: SystemData[] | null = null; // systems data cache
+
 
   private static loadData(): void {
     if (!System.jsonData) {
       const jsonFilePath: string = AppConfig.config!.universeDataPath;
       const jsonData: Buffer = fs.readFileSync(jsonFilePath);
       System.jsonData = JSON.parse(jsonData.toString());
+
+      const systemsDataJsonFilePath: string = AppConfig.config!.systemsData;
+      const systemsDataJsonData: Buffer = fs.readFileSync(systemsDataJsonFilePath);
+      System.systemsData = JSON.parse(systemsDataJsonData.toString());
+
     }
   }
 
@@ -52,6 +67,43 @@ class System {
 
     return distance;
   }
+
+  private static findShortestPath(
+    currentSystemId: number,
+    targetSystemId: number,
+    jumpsLeft: number,
+    visited: Set<number>,
+    path: number[],
+  ): number | null {
+    if (jumpsLeft < 0 || visited.has(currentSystemId)) {
+      return null; // No valid path found
+    }
+
+    visited.add(currentSystemId);
+    path.push(currentSystemId);
+
+    if (currentSystemId === targetSystemId) {
+      return path.length - 1; // Number of jumps is the length of the path minus 1
+    }
+
+    const connectedSystems: number[] = System.jsonData!.jumps
+      .filter((jump) => jump.from === currentSystemId)
+      .map((jump) => jump.to);
+
+    let shortestPath: number | null = null;
+
+    connectedSystems.forEach((nextSystemId) => {
+      if (!path.includes(nextSystemId)) {
+        const jumpsToTarget = System.findShortestPath(nextSystemId, targetSystemId, jumpsLeft - 1, visited, [...path]);
+        if (jumpsToTarget !== null && (shortestPath === null || jumpsToTarget < shortestPath)) {
+          shortestPath = jumpsToTarget;
+        }
+      }
+    });
+
+    return shortestPath;
+  }
+
 
   static findSystemsInRegion(regionName: string): string[] {
     // Load data if not already loaded
@@ -178,6 +230,69 @@ class System {
       });
 
     return connectedSystems.filter(Boolean) as string[];
+  }
+
+  static getKillsAndJumpsForSystems(systemNames: string[], originSystem: string): {
+    systemId: number;
+    systemName: string;
+    npcKills: number;
+    podShipKills: number;
+    jumps: number;
+    distance: number,
+    stargateJumps: number,
+  }[] {
+
+    System.loadData();
+
+    const result: Array<{
+      systemId: number;
+      systemName: string;
+      npcKills: number;
+      podShipKills: number;
+      jumps: number;
+      distance: number;
+      stargateJumps: number;
+    }> = [];
+
+    const originSystemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === originSystem);
+
+    systemNames.forEach((systemName) => {
+      const targetSystem = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === systemName);
+      const systemData = System.systemsData!.find((solarSystem) => solarSystem.system_id === targetSystem?.id);
+
+      if (targetSystem && systemData) {
+        const distance = System.calculateDistance(originSystemData!, targetSystem);
+        const distanceInLightyears = distance * (3.26 / 0.0635);
+
+
+        result.push({
+          systemId: systemData.system_id,
+          systemName: targetSystem.name,
+          npcKills: systemData.npc_kills,
+          podShipKills: systemData.pod_kills + systemData.ship_kills,
+          jumps: systemData.ship_jumps,
+          distance: distanceInLightyears,
+          stargateJumps: 0,
+        });
+      }
+      else if (systemData === undefined) {
+        const distance = System.calculateDistance(originSystemData!, targetSystem!);
+        const distanceInLightyears = distance * (3.26 / 0.0635);
+
+
+        result.push({
+          systemId: targetSystem!.id,
+          systemName: targetSystem!.name,
+          npcKills: 0,
+          podShipKills: 0,
+          jumps: 0,
+          distance: distanceInLightyears,
+          stargateJumps: 0,
+        });
+      }
+    });
+
+    return result;
   }
 }
 
