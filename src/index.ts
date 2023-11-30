@@ -15,6 +15,10 @@ app.use(bodyParser.json());
 
 ESI.getSystemData();
 
+setInterval(() => {
+    ESI.getSystemData();
+}, 600000);
+
 app.listen(AppConfig.config?.port, () => {
     logger.info(`Server online on port ${AppConfig.config?.port}`);
 });
