@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as fuzzy from 'fuzzy';
 import AppConfig from '../config';
+import ESI from './ESI';
 
 interface SolarSystem {
   name: string;
@@ -68,41 +69,57 @@ class System {
     return distance;
   }
 
-  private static findShortestPath(
-    currentSystemId: number,
-    targetSystemId: number,
-    jumpsLeft: number,
-    visited: Set<number>,
-    path: number[],
-  ): number | null {
-    if (jumpsLeft < 0 || visited.has(currentSystemId)) {
-      return null; // No valid path found
+  private static async getJumps(systemIds: number[], originId: number): Promise<{ system: string, jumps: number }[]> {
+    if (originId === undefined) {
+      return [];
     }
 
-    visited.add(currentSystemId);
-    path.push(currentSystemId);
+    System.loadData();
 
-    if (currentSystemId === targetSystemId) {
-      return path.length - 1; // Number of jumps is the length of the path minus 1
-    }
+    const result: { system: string, jumps: number }[] = [];
+    const processedSystems: number[] = [];
 
-    const connectedSystems: number[] = System.jsonData!.jumps
-      .filter((jump) => jump.from === currentSystemId)
-      .map((jump) => jump.to);
+    // Set the concurrency limit
+    const concurrencyLimit = 20;
 
-    let shortestPath: number | null = null;
-
-    connectedSystems.forEach((nextSystemId) => {
-      if (!path.includes(nextSystemId)) {
-        const jumpsToTarget = System.findShortestPath(nextSystemId, targetSystemId, jumpsLeft - 1, visited, [...path]);
-        if (jumpsToTarget !== null && (shortestPath === null || jumpsToTarget < shortestPath)) {
-          shortestPath = jumpsToTarget;
-        }
+    // Define a helper function to get route for a system
+    const getRouteForSystem = async (systemId: number): Promise<void> => {
+      if (processedSystems.includes(systemId)) {
+        return;
       }
-    });
 
-    return shortestPath;
+      const route = await ESI.getRoute(originId, systemId);
+
+      const namedRoute = route.map((s) => {
+        const systemData = this.jsonData?.solarSystems.find((system) => system.id === s);
+        return systemData?.name || '';
+      });
+
+      for (const [index, namedSystem] of namedRoute.entries()) {
+        result.push({
+          system: namedSystem,
+          jumps: index
+        });
+      }
+
+      processedSystems.push(systemId);
+    };
+
+    // Use a loop to control concurrency manually
+    let index = 0;
+    const totalSystems = systemIds.length;
+
+    while (index < totalSystems) {
+      const batch = systemIds.slice(index, index + concurrencyLimit);
+      const promises = batch.map(getRouteForSystem);
+      await Promise.all(promises);
+
+      index += concurrencyLimit;
+    }
+
+    return result;
   }
+
 
 
   static findSystemsInRegion(regionName: string): string[] {
@@ -232,7 +249,7 @@ class System {
     return connectedSystems.filter(Boolean) as string[];
   }
 
-  static getKillsAndJumpsForSystems(systemNames: string[], originSystem: string): {
+  static async getKillsAndJumpsForSystems(systemNames: string[], originSystem: string): Promise<{
     systemId: number;
     systemName: string;
     npcKills: number;
@@ -240,7 +257,7 @@ class System {
     jumps: number;
     distance: number,
     stargateJumps: number,
-  }[] {
+  }[]> {
 
     System.loadData();
 
@@ -254,16 +271,33 @@ class System {
       stargateJumps: number;
     }> = [];
 
+    const systemIds: number[] = []
+
+    for (const system of systemNames) {
+      const systemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === system);
+      systemIds.push(systemData!.id);
+    }
+
     const originSystemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === originSystem);
+
+    let jumps: {
+      system: string;
+      jumps: number;
+    }[] = [];
+
+    if (originSystemData !== undefined) {
+      jumps = await System.getJumps(systemIds, originSystemData.id);
+    }
+
 
     systemNames.forEach((systemName) => {
       const targetSystem = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === systemName);
       const systemData = System.systemsData!.find((solarSystem) => solarSystem.system_id === targetSystem?.id);
+      const stargateJumps = jumps.find((data) => data.system === targetSystem!.name)?.jumps;
 
       if (targetSystem && systemData) {
         const distance = System.calculateDistance(originSystemData!, targetSystem);
         const distanceInLightyears = distance * (3.26 / 0.0635);
-
 
         result.push({
           systemId: systemData.system_id,
@@ -272,7 +306,7 @@ class System {
           podShipKills: systemData.pod_kills + systemData.ship_kills,
           jumps: systemData.ship_jumps,
           distance: distanceInLightyears,
-          stargateJumps: 0,
+          stargateJumps: stargateJumps !== undefined ? stargateJumps : -1,
         });
       }
       else if (systemData === undefined) {
@@ -287,7 +321,7 @@ class System {
           podShipKills: 0,
           jumps: 0,
           distance: distanceInLightyears,
-          stargateJumps: 0,
+          stargateJumps: stargateJumps !== undefined ? stargateJumps : -1,
         });
       }
     });

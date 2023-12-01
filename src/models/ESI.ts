@@ -67,6 +67,20 @@ class ESI {
             console.error('Error fetching or storing system data:', error.message);
         }
     }
+
+    static async getRoute(start: string | number, destination: string | number): Promise<number[]> {
+        try {
+            // Fetch system kills data
+            const routesResponse = await axios.get<number[]>(
+                `${ESI.basePath}route/${start}/${destination}?flag=shortest`
+            );
+
+            return routesResponse.data
+        } catch (error: any) {
+            console.error('Error fetching route:', error.message);
+            return [];
+        }
+    }
 }
 
 export default ESI;

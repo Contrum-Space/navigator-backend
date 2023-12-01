@@ -49,9 +49,9 @@ app.post('/graph', (req: Request, res: Response) => {
     res.send({ data: { graph } });
 });
 
-app.post('/data', (req: Request, res: Response) => {
+app.post('/data', async (req: Request, res: Response) => {
     const { systems, origin } = req.body;
-    const systemsData = System.getKillsAndJumpsForSystems(systems, origin);
+    const systemsData = await System.getKillsAndJumpsForSystems(systems, origin);
     res.send({ data: { systemsData } });
 });
 
