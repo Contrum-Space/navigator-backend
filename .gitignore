@@ -133,3 +133,4 @@ dist
 database/
 postgres-latest.dmp
 build/
+systems-data.json

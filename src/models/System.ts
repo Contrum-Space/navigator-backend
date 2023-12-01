@@ -117,6 +117,60 @@ class System {
     return result;
   }
 
+  private static async getJumpsCustom(systemIds: number[], originId: number): Promise<{ system: string, jumps: number }[]> {
+    System.loadData();
+
+    const { solarSystems, jumps } = System.jsonData!;
+
+    const distances: { [systemId: number]: number } = {};
+    const visited: Set<number> = new Set();
+    const queue: number[] = [];
+
+    // Initialize distances with Infinity for all systems
+    for (const system of solarSystems) {
+      distances[system.id] = Infinity;
+    }
+
+    // Set distance to origin system as 0
+    distances[originId] = 0;
+    queue.push(originId);
+
+    while (queue.length > 0) {
+      const currentSystemId = queue.shift() as number;
+
+      if (visited.has(currentSystemId)) {
+        continue;
+      }
+
+      visited.add(currentSystemId);
+
+      for (const jump of jumps) {
+        if (jump.from === currentSystemId && !visited.has(jump.to)) {
+          const newDistance = distances[currentSystemId] + 1;
+          if (newDistance < distances[jump.to]) {
+            distances[jump.to] = newDistance;
+            queue.push(jump.to);
+          }
+        }
+      }
+    }
+
+    // Build the result array
+    const result: { system: string, jumps: number }[] = [];
+
+    for (const systemId of systemIds) {
+      const system = solarSystems.find((s) => s.id === systemId);
+
+      if (system) {
+        const jumps = distances[systemId] !== Infinity ? distances[systemId] : -1;
+        result.push({ system: system.name, jumps });
+      }
+    }
+
+    return result;
+  }
+
+
   static findSystemsInRegion(regionName: string): string[] {
     // Load data if not already loaded
     System.loadData();
@@ -251,6 +305,7 @@ class System {
     podShipKills: number;
     jumps: number;
     distance: number,
+    stargateJumps: number;
   }[]> {
 
     System.loadData();
@@ -262,6 +317,7 @@ class System {
       podShipKills: number;
       jumps: number;
       distance: number;
+      stargateJumps: number;
     }> = [];
 
     const systemIds: number[] = []
@@ -272,10 +328,17 @@ class System {
     }
 
     const originSystemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === originSystem);
+    const jumps = await System.getJumpsCustom(systemIds, originSystemData!.id);
 
     systemNames.forEach((systemName) => {
       const targetSystem = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === systemName);
       const systemData = System.systemsData!.find((solarSystem) => solarSystem.system_id === targetSystem?.id);
+
+      let stargateJumps = jumps.find((data) => data.system === targetSystem?.name)?.jumps;
+
+      if (stargateJumps === undefined) {
+        stargateJumps = -1;
+      }
 
       if (targetSystem && systemData) {
         const distance = System.calculateDistance(originSystemData!, targetSystem);
@@ -288,6 +351,7 @@ class System {
           podShipKills: systemData.pod_kills + systemData.ship_kills,
           jumps: systemData.ship_jumps,
           distance: distanceInLightyears,
+          stargateJumps
         });
       }
       else if (systemData === undefined) {
@@ -302,6 +366,7 @@ class System {
           podShipKills: 0,
           jumps: 0,
           distance: distanceInLightyears,
+          stargateJumps
         });
       }
     });
