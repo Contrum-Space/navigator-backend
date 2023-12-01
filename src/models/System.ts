@@ -77,14 +77,10 @@ class System {
     System.loadData();
 
     const result: { system: string, jumps: number }[] = [];
-    const processedSystems: number[] = [];
+    const processedSystems: { [key: number]: boolean } = {};
 
-    // Set the concurrency limit
-    const concurrencyLimit = 20;
-
-    // Define a helper function to get route for a system
     const getRouteForSystem = async (systemId: number): Promise<void> => {
-      if (processedSystems.includes(systemId)) {
+      if (processedSystems[systemId]) {
         return;
       }
 
@@ -95,32 +91,31 @@ class System {
         return systemData?.name || '';
       });
 
-      for (const [index, namedSystem] of namedRoute.entries()) {
+      namedRoute.forEach((namedSystem, index) => {
         result.push({
           system: namedSystem,
           jumps: index
         });
-      }
+      });
 
-      processedSystems.push(systemId);
+      processedSystems[systemId] = true;
     };
 
-    // Use a loop to control concurrency manually
-    let index = 0;
-    const totalSystems = systemIds.length;
+    const concurrencyLimit = 20;
+    const batches = Math.ceil(systemIds.length / concurrencyLimit);
 
-    while (index < totalSystems) {
-      const batch = systemIds.slice(index, index + concurrencyLimit);
-      const promises = batch.map(getRouteForSystem);
-      await Promise.all(promises);
-
-      index += concurrencyLimit;
-    }
+    // Use Promise.all for parallelizing the fetching of routes within each batch
+    await Promise.all(
+      Array.from({ length: batches }, (_, i) => {
+        const start = i * concurrencyLimit;
+        const end = Math.min((i + 1) * concurrencyLimit, systemIds.length);
+        const batch = systemIds.slice(start, end);
+        return Promise.all(batch.map(getRouteForSystem));
+      })
+    );
 
     return result;
   }
-
-
 
   static findSystemsInRegion(regionName: string): string[] {
     // Load data if not already loaded
@@ -256,7 +251,6 @@ class System {
     podShipKills: number;
     jumps: number;
     distance: number,
-    stargateJumps: number,
   }[]> {
 
     System.loadData();
@@ -268,7 +262,6 @@ class System {
       podShipKills: number;
       jumps: number;
       distance: number;
-      stargateJumps: number;
     }> = [];
 
     const systemIds: number[] = []
@@ -280,20 +273,9 @@ class System {
 
     const originSystemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === originSystem);
 
-    let jumps: {
-      system: string;
-      jumps: number;
-    }[] = [];
-
-    if (originSystemData !== undefined) {
-      jumps = await System.getJumps(systemIds, originSystemData.id);
-    }
-
-
     systemNames.forEach((systemName) => {
       const targetSystem = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === systemName);
       const systemData = System.systemsData!.find((solarSystem) => solarSystem.system_id === targetSystem?.id);
-      const stargateJumps = jumps.find((data) => data.system === targetSystem!.name)?.jumps;
 
       if (targetSystem && systemData) {
         const distance = System.calculateDistance(originSystemData!, targetSystem);
@@ -306,7 +288,6 @@ class System {
           podShipKills: systemData.pod_kills + systemData.ship_kills,
           jumps: systemData.ship_jumps,
           distance: distanceInLightyears,
-          stargateJumps: stargateJumps !== undefined ? stargateJumps : -1,
         });
       }
       else if (systemData === undefined) {
@@ -321,7 +302,6 @@ class System {
           podShipKills: 0,
           jumps: 0,
           distance: distanceInLightyears,
-          stargateJumps: stargateJumps !== undefined ? stargateJumps : -1,
         });
       }
     });
