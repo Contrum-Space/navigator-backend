@@ -25,22 +25,24 @@ interface SystemData {
   pod_kills: number;
   ship_jumps: number;
 }
-
 class System {
   public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null; // systems data cache
   public static systemsData: SystemData[] | null = null; // systems data cache
 
-
   private static loadData(): void {
-    if (!System.jsonData) {
-      const jsonFilePath: string = AppConfig.config!.universeDataPath;
-      const jsonData: Buffer = fs.readFileSync(jsonFilePath);
-      System.jsonData = JSON.parse(jsonData.toString());
+    try {
+      if (!System.jsonData) {
+        const jsonFilePath: string = AppConfig.config!.universeDataPath;
+        const jsonData: Buffer = fs.readFileSync(jsonFilePath);
+        System.jsonData = JSON.parse(jsonData.toString());
 
-      const systemsDataJsonFilePath: string = AppConfig.config!.systemsData;
-      const systemsDataJsonData: Buffer = fs.readFileSync(systemsDataJsonFilePath);
-      System.systemsData = JSON.parse(systemsDataJsonData.toString());
-
+        const systemsDataJsonFilePath: string = AppConfig.config!.systemsData;
+        const systemsDataJsonData: Buffer = fs.readFileSync(systemsDataJsonFilePath);
+        System.systemsData = JSON.parse(systemsDataJsonData.toString());
+      }
+    } catch (error: any) {
+      console.error('Error loading data:', error.message);
+      throw new Error('Failed to load system data.');
     }
   }
 
@@ -364,23 +366,44 @@ class System {
     system: string;
     jumps: number;
   }[]> {
+    try {
+      if (originSystem === '') {
+        return [];
+      }
 
-    if (originSystem === '') {
+      const systemIds: number[] = [];
+      const solarSystems = System.jsonData?.solarSystems;
+
+      if (!solarSystems) {
+        throw new Error('Solar system data not available.');
+      }
+
+      for (const system of systemNames) {
+        const systemData = solarSystems.find((solarSystem) => solarSystem.name === system);
+
+        if (!systemData) {
+          throw new Error(`System data not found for ${system}`);
+        }
+
+        systemIds.push(systemData.id);
+      }
+
+      const originSystemData = solarSystems.find((solarSystem) => solarSystem.name === originSystem);
+
+      if (!originSystemData) {
+        throw new Error(`System data not found for ${originSystem}`);
+      }
+
+      const jumps = await System.getJumpsCustom(systemIds, originSystemData.id);
+
+      return jumps;
+    } catch (error: any) {
+      console.error('Error in getJumpsFromOrigin:', error.message);
+      // Handle the error appropriately, e.g., return a default value or rethrow the error.
       return [];
     }
-
-    const systemIds: number[] = []
-
-    for (const system of systemNames) {
-      const systemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === system);
-      systemIds.push(systemData!.id);
-    }
-
-    const originSystemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === originSystem);
-    const jumps = await System.getJumpsCustom(systemIds, originSystemData!.id);
-
-    return jumps;
   }
+
 }
 
 export default System;
