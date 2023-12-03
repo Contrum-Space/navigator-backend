@@ -1,16 +1,52 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import bodyParser from 'body-parser';
-import cors from 'cors';
-import express, { Request, Response } from 'express';
+import RedisStore from "connect-redis";
+import cors, { CorsOptions } from 'cors';
+import express from 'express';
+import session from 'express-session';
+import passport from 'passport';
+import { createClient } from 'redis';
 import AppConfig from './config';
 import logger from './logger';
 import ESI from './models/ESI';
-import Graph from './models/Graph';
-import System from './models/System';
+import routes from './routes';
 
 AppConfig.getConfig();
 
+
 const app = express();
-app.use(cors());
+
+const corsOptions: CorsOptions = {
+    origin: AppConfig.config?.frontend,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+    preflightContinue: true,
+}
+
+app.use(cors(corsOptions));
+
+app.set('trust proxy', 1) // trust first proxy
+
+// Initialize client.
+const redisClient = createClient()
+redisClient.connect().catch(console.error)
+
+// Initialize store.
+const redisStore = new RedisStore({
+    client: redisClient,
+    prefix: "myapp:",
+})
+
+
+app.use(session({
+    store: redisStore,
+    secret: 'keyboard cat',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(bodyParser.json());
 
 ESI.getSystemData();
@@ -19,50 +55,10 @@ setInterval(() => {
     ESI.getSystemData();
 }, 600000);
 
+
+
 app.listen(AppConfig.config?.port, () => {
     logger.info(`Server online on port ${AppConfig.config?.port}`);
 });
 
-app.get('/', (req: Request, res: Response) => {
-    res.send("Hello");
-})
-
-app.post('/systems', (req: Request, res: Response) => {
-    const { system, stargateJumps, lightyears, jumpDriveRange, mode } = req.body;
-    let systems: string[] = [];
-    if (mode === 'stargate') {
-        systems = System.findSystemsWithStargateJumps(system, parseInt(stargateJumps));
-    }
-    else if (mode === 'lightyears') {
-        systems = System.findSystemsWithinRange(system, parseFloat(lightyears));
-    }
-    else if (mode === 'jump drive') {
-        systems = System.findSystemsWithinRange(system, parseFloat(jumpDriveRange));
-    }
-    res.send({ data: { systems } });
-});
-
-app.post('/graph', (req: Request, res: Response) => {
-    const { systems } = req.body;
-    const systemsData = System.getConnectedSystems(systems);
-    const graph = Graph.generateGraph(systemsData);
-    res.send({ data: { graph } });
-});
-
-app.post('/data', async (req: Request, res: Response) => {
-    const { systems, origin } = req.body;
-    const systemsData = await System.getKillsAndJumpsForSystems(systems, origin);
-    res.send({ data: { systemsData } });
-});
-
-app.post('/jumps', async (req: Request, res: Response) => {
-    const { systems, origin } = req.body;
-    const jumpsData = await System.getJumpsFromOrigin(systems, origin);
-    res.send({ data: { jumpsData } });
-});
-
-app.post('/search', (req: Request, res: Response) => {
-    const { query } = req.body;
-    const matchedSystemNames = System.fuzzySearchSystemByName(query);
-    res.send({ data: { matchedSystemNames } });
-});
+app.use(routes);

@@ -9,6 +9,10 @@ interface Config {
   port: string;
   clientId: string;
   secretKey: string;
+  callback: string;
+  frontend: string;
+  redisHost: string;
+  redisPort: number;
 }
 
 class AppConfig {
@@ -21,13 +25,21 @@ class AppConfig {
     const port = process.env.PORT || '8000';
     const clientId = process.env.CLIENTID || '';
     const secretKey = process.env.SECRETKEY || '';
+    const callback = process.env.CALLBACK || '';
+    const frontend = process.env.FRONTEND || '';
+    const redisHost = process.env.REDISHOST || '';
+    const redisPort = parseInt(process.env.REDISPORT!) || 6379;
 
     AppConfig.config = {
       universeDataPath,
       systemsData,
       port,
       clientId,
-      secretKey
+      secretKey,
+      callback,
+      frontend,
+      redisHost,
+      redisPort
     };
   }
 

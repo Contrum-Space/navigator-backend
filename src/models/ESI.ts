@@ -81,6 +81,18 @@ class ESI {
             return [];
         }
     }
+
+    static async setRoute(system: number, addToEnd: boolean, accessToken: string): Promise<boolean> {
+        // Fetch system kills data
+        const apiResponse = await axios.post(
+            `${ESI.basePath}ui/autopilot/waypoint/?add_to_beginning=false&clear_other_waypoints=${!addToEnd}&destination_id=${system}`, {}, {
+            headers: {
+                "Authorization": `Bearer ${accessToken}`
+            }
+        });
+
+        return apiResponse.status === 204
+    }
 }
 
 export default ESI;

@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as fuzzy from 'fuzzy';
 import AppConfig from '../config';
-import ESI from './ESI';
 
 interface SolarSystem {
   name: string;
@@ -69,54 +68,6 @@ class System {
     );
 
     return distance;
-  }
-
-  private static async getJumps(systemIds: number[], originId: number): Promise<{ system: string, jumps: number }[]> {
-    if (originId === undefined) {
-      return [];
-    }
-
-    System.loadData();
-
-    const result: { system: string, jumps: number }[] = [];
-    const processedSystems: { [key: number]: boolean } = {};
-
-    const getRouteForSystem = async (systemId: number): Promise<void> => {
-      if (processedSystems[systemId]) {
-        return;
-      }
-
-      const route = await ESI.getRoute(originId, systemId);
-
-      const namedRoute = route.map((s) => {
-        const systemData = this.jsonData?.solarSystems.find((system) => system.id === s);
-        return systemData?.name || '';
-      });
-
-      namedRoute.forEach((namedSystem, index) => {
-        result.push({
-          system: namedSystem,
-          jumps: index
-        });
-      });
-
-      processedSystems[systemId] = true;
-    };
-
-    const concurrencyLimit = 20;
-    const batches = Math.ceil(systemIds.length / concurrencyLimit);
-
-    // Use Promise.all for parallelizing the fetching of routes within each batch
-    await Promise.all(
-      Array.from({ length: batches }, (_, i) => {
-        const start = i * concurrencyLimit;
-        const end = Math.min((i + 1) * concurrencyLimit, systemIds.length);
-        const batch = systemIds.slice(start, end);
-        return Promise.all(batch.map(getRouteForSystem));
-      })
-    );
-
-    return result;
   }
 
   private static async getJumpsCustom(systemIds: number[], originId: number): Promise<{ system: string, jumps: number }[]> {
