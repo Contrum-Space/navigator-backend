@@ -122,7 +122,6 @@ app.post('/search', (req: Request, res: Response) => {
 
 app.post('/set-destination', checkForToken, async (req: Request, res: Response) => {
     const { system, addToEnd } = req.body;
-    console.log({ system, addToEnd, user: req.user })
     const success = await ESI.setRoute(system, addToEnd, (req.user as any).accessToken);
     res.sendStatus(success ? 200 : 401);
 });
