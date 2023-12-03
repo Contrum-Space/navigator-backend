@@ -28,7 +28,9 @@ app.use(cors(corsOptions));
 app.set('trust proxy', 1) // trust first proxy
 
 // Initialize client.
-const redisClient = createClient()
+const redisClient = createClient({
+    url: `redis://${AppConfig.config?.redisHost}:${AppConfig.config?.redisPort}`,
+})
 redisClient.connect().catch(console.error)
 
 // Initialize store.
