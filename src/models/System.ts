@@ -254,6 +254,8 @@ class System {
   static async getKillsAndJumpsForSystems(systemNames: string[], originSystem: string): Promise<{
     systemId: number;
     systemName: string;
+    region: string;
+    systemSecurity: number,
     npcKills: number;
     podShipKills: number;
     jumps: number;
@@ -266,6 +268,8 @@ class System {
     const result: Array<{
       systemId: number;
       systemName: string;
+      region: string;
+      systemSecurity: number,
       npcKills: number;
       podShipKills: number;
       jumps: number;
@@ -286,6 +290,8 @@ class System {
         result.push({
           systemId: systemData.system_id,
           systemName: targetSystem.name,
+          region: targetSystem.region,
+          systemSecurity: targetSystem.security,
           npcKills: systemData.npc_kills,
           podShipKills: systemData.pod_kills + systemData.ship_kills,
           jumps: systemData.ship_jumps,
@@ -301,6 +307,8 @@ class System {
         result.push({
           systemId: targetSystem!.id,
           systemName: targetSystem!.name,
+          region: targetSystem!.region,
+          systemSecurity: targetSystem!.security,
           npcKills: 0,
           podShipKills: 0,
           jumps: 0,
