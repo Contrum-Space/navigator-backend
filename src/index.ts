@@ -2,8 +2,9 @@
 import bodyParser from 'body-parser';
 import RedisStore from "connect-redis";
 import cors, { CorsOptions } from 'cors';
-import express from 'express';
+import express, { Request, Response } from 'express';
 import session from 'express-session';
+import * as schedule from 'node-schedule';
 import passport from 'passport';
 import { createClient } from 'redis';
 import AppConfig from './config';
@@ -53,10 +54,7 @@ app.use(bodyParser.json());
 
 ESI.getSystemData();
 
-setInterval(() => {
-    ESI.getSystemData();
-}, 600000);
-
+const systemDataRefreshJob = schedule.scheduleJob('5 * * * *', ESI.getSystemData);
 
 
 app.listen(AppConfig.config?.port, () => {
@@ -64,3 +62,13 @@ app.listen(AppConfig.config?.port, () => {
 });
 
 app.use(routes);
+
+app.get('/system-data-refresh/minutes-remaining', (req: Request, res: Response) => {
+    const nextInvocation = systemDataRefreshJob.nextInvocation();
+
+    // Calculate the number of minutes remaining
+    const now = new Date();
+    const minutesRemaining = Math.ceil((nextInvocation.getTime() - now.getTime()) / (1000 * 60));
+
+    res.json({ minutesRemaining });
+})
