@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import axios from 'axios';
-import { ensureLoggedIn } from 'connect-ensure-login';
 import express, { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
 import AppConfig from '../config';
@@ -70,7 +69,6 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
 }
 
 app.get('/profile',
-    ensureLoggedIn('/auth'),
     function (req, res) {
         res.send({ user: req.user });
     });
