@@ -70,7 +70,7 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
 
 app.get('/profile',
     function (req, res) {
-        res.send({ user: req.user });
+        res.send({ user: (req.user as any).profile });
     });
 
 app.get('/auth', passport.authenticate('eveonline-sso'));
@@ -122,6 +122,14 @@ app.post('/set-destination', checkForToken, async (req: Request, res: Response) 
     const { system, addToEnd } = req.body;
     const success = await ESI.setRoute(system, addToEnd, (req.user as any).accessToken);
     res.sendStatus(success ? 200 : 401);
+});
+
+app.get('/logout', (req, res, next) => {
+    req.logout(req.user!, (err) => {
+        if (err) return next(err);
+    });
+    res.clearCookie('connect.sid');
+    res.send({ isAuth: req.isAuthenticated(), user: req.user });
 });
 
 export default app;
