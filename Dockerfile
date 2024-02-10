@@ -1,5 +1,5 @@
 # Use the official Alpine Linux image with Node.js pre-installed
-FROM node:14-alpine
+FROM node:20-alpine
 
 # Install PM2 globally
 RUN npm install -g pm2
@@ -8,8 +8,8 @@ RUN npm install -g pm2
 WORKDIR /app
 
 # Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
-
+COPY package.json ./
+COPY package-lock.json ./
 # Install dependencies
 RUN npm install
 
@@ -19,8 +19,11 @@ COPY . .
 # Build TypeScript code
 RUN npm run build
 
+RUN ls -l /app
+
+
 # Expose the port that your application will run on
 EXPOSE 80
 
 # Command to start the application with PM2
-CMD ["pm2-runtime", "build/index.js"]
+CMD ["node", "build/index.js"]
