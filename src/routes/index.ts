@@ -6,6 +6,7 @@ import AppConfig from '../config';
 import ESI from '../models/ESI';
 import Graph from '../models/Graph';
 import System from '../models/System';
+import mongoose from 'mongoose';
 
 AppConfig.getConfig();
 
@@ -24,6 +25,19 @@ const strategy = new EveOnlineSsoStrategy({
         return done(null, { accessToken, refreshToken, profile });
     }
 )
+
+mongoose.connect("mongodb+srv://admin:mMk50AkYoDnVQVLN@cluster0.vbaa87y.mongodb.net/main?retryWrites=true&w=majority&appName=Cluster0");
+
+// Define your Mongoose schema
+const schema = new mongoose.Schema({
+    name: String,
+}, {
+    timestamps: true
+});
+
+// Create a Mongoose model
+const Entry = mongoose.model('Entry', schema);
+
 
 passport.use(strategy);
 refresh.use(strategy);
@@ -70,6 +84,9 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
 
 app.get('/profile',
     function (req, res) {
+        if(req.user === undefined){
+            res.send({ user: null });
+        }
         res.send({ user: (req.user as any).profile });
     });
 
@@ -110,6 +127,19 @@ app.post('/jumps', async (req: Request, res: Response) => {
     const { systems, origin } = req.body;
     const jumpsData = await System.getJumpsFromOrigin(systems, origin);
     res.send({ data: { jumpsData } });
+});
+
+app.post('/giveaway', checkForToken, async (req: Request, res: Response) => {
+    try{
+        const newEntry = new Entry({
+            name: (req.user! as any).profile.CharacterName
+        });
+        await newEntry.save();
+        res.sendStatus(200);
+    }
+    catch(err){
+        res.sendStatus(500);
+    }
 });
 
 app.post('/search', (req: Request, res: Response) => {
