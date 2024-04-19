@@ -90,6 +90,13 @@ app.get('/profile',
         res.send({ user: (req.user as any).profile });
     });
 
+app.get('/logout', function (req: Request, res: Response){
+    req.session.destroy(function (err) {
+        console.log(err);
+        res.sendStatus(200); //Inside a callback… bulletproof!
+    });
+});
+
 app.get('/auth', passport.authenticate('eveonline-sso'));
 
 app.get('/auth/callback',
