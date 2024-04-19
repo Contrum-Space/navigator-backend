@@ -131,8 +131,19 @@ app.post('/jumps', async (req: Request, res: Response) => {
 
 app.post('/giveaway', checkForToken, async (req: Request, res: Response) => {
     try{
+        const entries = await Entry.find({});
+
+        const name = (req.user! as any).profile.CharacterName;
+
+        for(const entry of entries){
+            if(name === entry.name){
+                res.sendStatus(200);
+                return;
+            }
+        }
+
         const newEntry = new Entry({
-            name: (req.user! as any).profile.CharacterName
+            name
         });
         await newEntry.save();
         res.sendStatus(200);
