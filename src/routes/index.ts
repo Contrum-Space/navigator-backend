@@ -2,11 +2,9 @@
 import axios from 'axios';
 import express, { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
-import AppConfig from '../config';
+import {AppConfig} from '../config';
 import ESI from '../models/ESI';
-import Graph from '../models/Graph';
 import System from '../models/System';
-import mongoose from 'mongoose';
 
 AppConfig.getConfig();
 
@@ -14,30 +12,17 @@ const EveOnlineSsoStrategy = require('passport-eveonline-sso');
 const refresh = require('passport-oauth2-refresh');
 
 const app = express();
-
+const config = AppConfig.getConfig();   
 const strategy = new EveOnlineSsoStrategy({
-    clientID: AppConfig.config?.clientId,
-    secretKey: AppConfig.config?.secretKey,
-    callbackURL: AppConfig.config?.callback,
-    scope: 'esi-ui.write_waypoint.v1'
+    clientID: config.clientId,
+    secretKey: config.secretKey,
+    callbackURL: config.callback,
+    scope: 'esi-ui.write_waypoint.v1 esi-location.read_location.v1'
 },
-    function (accessToken: any, refreshToken: any, profile: any, done: any) {
-        return done(null, { accessToken, refreshToken, profile });
+    function (accessToken: string, refreshToken: string, params: any, profile: any, done: (error: any, user?: any) => void) {
+        return done(null, { accessToken, refreshToken, params, profile });
     }
 )
-
-mongoose.connect("mongodb+srv://admin:mMk50AkYoDnVQVLN@cluster0.vbaa87y.mongodb.net/main?retryWrites=true&w=majority&appName=Cluster0");
-
-// Define your Mongoose schema
-const schema = new mongoose.Schema({
-    name: String,
-}, {
-    timestamps: true
-});
-
-// Create a Mongoose model
-const Entry = mongoose.model('Entry', schema);
-
 
 passport.use(strategy);
 refresh.use(strategy);
@@ -58,8 +43,9 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
         return;
     }
 
-    // refresh token
+    const config = AppConfig.getConfig();   
 
+    // refresh token
     try {
         const response = await axios.post(
             'https://login.eveonline.com/v2/oauth/token',
@@ -67,7 +53,7 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
             {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': `Basic ${Buffer.from(`${AppConfig.config?.clientId}:${AppConfig.config?.secretKey}`).toString('base64')}`
+                    'Authorization': `Basic ${Buffer.from(`${config.clientId}:${config.secretKey}`).toString('base64')}`
                 },
             }
         );
@@ -84,8 +70,9 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
 
 app.get('/profile',
     function (req, res) {
-        if(req.user === undefined){
+        if(!req.user){
             res.send({ user: null });
+            return;
         }
         res.send({ user: (req.user as any).profile });
     });
@@ -100,69 +87,18 @@ app.get('/logout', function (req: Request, res: Response){
 app.get('/auth', passport.authenticate('eveonline-sso'));
 
 app.get('/auth/callback',
-    passport.authenticate('eveonline-sso', { successReturnToOrRedirect: AppConfig.config?.frontend, failureRedirect: '/auth' }));
+    passport.authenticate('eveonline-sso', { successReturnToOrRedirect: AppConfig.getConfig().frontend, failureRedirect: '/auth' }));
 
-app.post('/systems', (req: Request, res: Response) => {
-    const { system, stargateJumps, lightyears, jumpDriveRange, mode } = req.body;
-    let systems: string[] = [];
-    if (mode === 'stargate') {
-        systems = System.findSystemsWithStargateJumps(system, parseInt(stargateJumps));
-    }
-    else if (mode === 'lightyears') {
-        systems = System.findSystemsWithinRange(system, parseFloat(lightyears));
-    }
-    else if (mode === 'jump drive') {
-        systems = System.findSystemsWithinRange(system, parseFloat(jumpDriveRange));
-    }
-    res.send({ data: { systems } });
+app.post('/route', async (req: Request, res: Response) => {
+    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
+    const route = await System.getRoute(origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize);
+    const systemsWithData = await System.getData(route);
+    res.send({ jumps: route.length, route: systemsWithData});
 });
 
-app.post('/graph', (req: Request, res: Response) => {
-    const { systems } = req.body;
-    const systemsData = System.getConnectedSystems(systems);
-    const graph = Graph.generateGraph(systemsData);
-    res.send({ data: { graph } });
-});
-
-app.post('/data', async (req: Request, res: Response) => {
-    const { systems, origin } = req.body;
-    const systemsData = await System.getKillsAndJumpsForSystems(systems, origin);
-    res.send({ data: { systemsData } });
-});
-
-app.post('/jumps', async (req: Request, res: Response) => {
-    const { systems, origin } = req.body;
-    const jumpsData = await System.getJumpsFromOrigin(systems, origin);
-    res.send({ data: { jumpsData } });
-});
-
-app.post('/giveaway', checkForToken, async (req: Request, res: Response) => {
-    try{
-        const entries = await Entry.find({});
-
-        const name = (req.user! as any).profile.CharacterName;
-
-        for(const entry of entries){
-            if(name === entry.name){
-                res.sendStatus(200);
-                return;
-            }
-        }
-
-        const newEntry = new Entry({
-            name
-        });
-        await newEntry.save();
-        res.sendStatus(200);
-    }
-    catch(err){
-        res.sendStatus(500);
-    }
-});
-
-app.post('/search', (req: Request, res: Response) => {
+app.post('/search', async (req: Request, res: Response) => {
     const { query } = req.body;
-    const matchedSystemNames = System.fuzzySearchSystemByName(query);
+    const matchedSystemNames = await System.fuzzySearchSystemByName(query);
     res.send({ data: { matchedSystemNames } });
 });
 
@@ -170,6 +106,23 @@ app.post('/set-destination', checkForToken, async (req: Request, res: Response) 
     const { system, addToEnd } = req.body;
     const success = await ESI.setRoute(system, addToEnd, (req.user as any).accessToken);
     res.sendStatus(success ? 200 : 401);
+});
+
+app.post('/set-waypoints', checkForToken, async (req: Request, res: Response) => {
+    const { waypoints } = req.body;
+    const waypointIDs = await System.resolveNamesToIDs(waypoints);
+    await ESI.setWaypoints(waypointIDs, (req.user as any).accessToken);
+    res.sendStatus(200);
+});
+
+app.get('/current-location', checkForToken, async (req: Request, res: Response) => {
+    const location = await ESI.getCurrentLocation((req.user as any).profile.CharacterID, (req.user as any).accessToken);
+    const systemName = await System.resolveIDToName(location);
+    if(systemName === 'N/A'){
+        res.send({ location: 'Unknown' });
+        return;
+    }
+    res.send({ location: systemName });
 });
 
 app.get('/logout', (req, res, next) => {

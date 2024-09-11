@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as fs from 'fs';
-import AppConfig from '../config';
+import {AppConfig} from '../config';
 
 interface GetUniverseSystemKillsOk {
     npc_kills: number;
@@ -60,7 +60,9 @@ class ESI {
 
             // Store the combined data in a JSON file
             const jsonOutput = JSON.stringify(combinedData, null, 2);
-            fs.writeFileSync(AppConfig.config!.systemsData, jsonOutput);
+
+            const config = AppConfig.getConfig();
+            fs.writeFileSync(config.systemsData, jsonOutput);
 
             console.log('System data stored in systems_data.json');
         } catch (error: any) {
@@ -92,6 +94,26 @@ class ESI {
         });
 
         return apiResponse.status === 204
+    }
+
+    static async setWaypoints(waypoints: number[], accessToken: string): Promise<void> {
+        await this.setRoute(waypoints[0], false, accessToken);
+
+        for (let i = 1; i < waypoints.length; i++) {
+            if(waypoints[i] !== 31000005) {
+                await this.setRoute(waypoints[i], true, accessToken);
+            }
+        }   
+        return;
+    }
+
+    static async getCurrentLocation(characterId: number, accessToken: string): Promise<number> {
+        const apiResponse = await axios.get(`${ESI.basePath}characters/${characterId}/location/`, {
+            headers: {
+                "Authorization": `Bearer ${accessToken}`
+            }
+        });
+        return apiResponse.data.solar_system_id;
     }
 }
 

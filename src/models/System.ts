@@ -1,6 +1,7 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as fuzzy from 'fuzzy';
-import AppConfig from '../config';
+import { AppConfig } from '../config';
+import EVEScout from './Eve-Scout';
 
 interface SolarSystem {
   name: string;
@@ -12,9 +13,10 @@ interface SolarSystem {
   z: number;
 }
 
-interface Jump {
+export interface Jump {
   from: number;
   to: number;
+  max_ship_size?: 'small' | 'medium' | 'large' | 'xlarge' | 'capital' | 'unknown';
 }
 
 interface SystemData {
@@ -24,345 +26,216 @@ interface SystemData {
   pod_kills: number;
   ship_jumps: number;
 }
+
+interface RouteSystem {
+  id: number;
+  system: string;
+  security: number;
+  region: string;
+  jumps: number;
+}
+
+interface ExtendedRouteSystem extends RouteSystem {
+  npc_kills: number;
+  pod_kills: number;
+  ship_kills: number;
+  ship_jumps: number;
+}
+
+type ShipSize = 'small' | 'medium' | 'large' | 'xlarge' | 'capital' | 'unknown';
+
 class System {
   public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null; // systems data cache
   public static systemsData: SystemData[] | null = null; // systems data cache
 
-  private static loadData(): void {
+  private static async loadData(): Promise<void> {
+    if (System.jsonData) return;
+
+    const config = AppConfig.getConfig();
+
     try {
-      if (!System.jsonData) {
-        const jsonFilePath: string = AppConfig.config!.universeDataPath;
-        const jsonData: Buffer = fs.readFileSync(jsonFilePath);
-        System.jsonData = JSON.parse(jsonData.toString());
+      const [universeData, systemsData] = await Promise.all([
+        fs.readFile(config.universeDataPath, 'utf-8'),
+        fs.readFile(config.systemsData, 'utf-8')
+      ]);
 
-        const systemsDataJsonFilePath: string = AppConfig.config!.systemsData;
-        const systemsDataJsonData: Buffer = fs.readFileSync(systemsDataJsonFilePath);
-        System.systemsData = JSON.parse(systemsDataJsonData.toString());
-      }
-    } catch (error: any) {
-      console.error('Error loading data:', error.message);
-      throw new Error('Failed to load system data.');
+      System.jsonData = JSON.parse(universeData);
+      System.systemsData = JSON.parse(systemsData);
+    } catch (error) {
+      throw new Error('Failed to load system data: ' + (error as Error).message);
     }
   }
 
-  static fuzzySearchSystemByName(query: string): string[] {
-    // Load data if not already loaded
-    System.loadData();
-
-    const systemNames: string[] = System.jsonData!.solarSystems.map((system) => system.name);
-
-    // Use fuzzy matching to find similar system names
-    const results = fuzzy.filter(query, systemNames);
-
-    // Extract system names from fuzzy search results
-    const fuzzyMatchedSystemNames: string[] = results.map((result) => result.original);
-
-    return fuzzyMatchedSystemNames;
+  static async resolveNamesToIDs(names: string[]): Promise<number[]> {
+    await System.loadData();
+    // for each name, find the system in the jsonData and return the id
+    return names.map((name) => {
+      const system = System.jsonData!.solarSystems.find((system) => system.name === name);
+      if (system) {
+        return system.id;
+      }
+      throw new Error(`System not found: ${name}`);
+    });
   }
 
-  private static calculateDistance(system1: SolarSystem, system2: SolarSystem): number {
-    const distance = Math.sqrt(
-      Math.pow(system2.x - system1.x, 2) +
-      Math.pow(system2.y - system1.y, 2) +
-      Math.pow(system2.z - system1.z, 2)
-    );
-
-    return distance;
+  static async resolveIDToName(id: number): Promise<string> {
+    await System.loadData();
+    const system = System.jsonData!.solarSystems.find((system) => system.id === id);
+    if (system) {
+      return system.name;
+    }
+    return 'N/A';
   }
 
-  private static async getJumpsCustom(systemIds: number[], originId: number): Promise<{ system: string, jumps: number }[]> {
-    System.loadData();
+  static async fuzzySearchSystemByName(query: string): Promise<string[]> {
+    await System.loadData();
 
-    const { solarSystems, jumps } = System.jsonData!;
-
-    const distances: { [systemId: number]: number } = {};
-    const visited: Set<number> = new Set();
-    const queue: number[] = [];
-
-    // Initialize distances with Infinity for all systems
-    for (const system of solarSystems) {
-      distances[system.id] = Infinity;
+    if (!System.jsonData) {
+      throw new Error('System data not loaded');
     }
 
-    // Set distance to origin system as 0
-    distances[originId] = 0;
-    queue.push(originId);
+    const systemNames: string[] = System.jsonData.solarSystems.map((system) => system.name);
 
-    while (queue.length > 0) {
-      const currentSystemId = queue.shift() as number;
+    // Perform fuzzy search
+    const results = fuzzy.filter(query, systemNames, {
+      extract: (el) => el
+    });
 
-      if (visited.has(currentSystemId)) {
-        continue;
-      }
+    // Sort results by score (descending) and limit to top 10
+    return results
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map((result) => result.string);
+  }
 
-      visited.add(currentSystemId);
-
-      for (const jump of jumps) {
-        if (jump.from === currentSystemId && !visited.has(jump.to)) {
-          const newDistance = distances[currentSystemId] + 1;
-          if (newDistance < distances[jump.to]) {
-            distances[jump.to] = newDistance;
+  public static async getRoute(
+    origin: string,
+    destination: string,
+    waypoints: string[],
+    useThera: boolean,
+    useTurnur: boolean,
+    keepWaypointOrder: boolean,
+    min_wh_size?: ShipSize
+  ): Promise<RouteSystem[]> {
+    await System.loadData();
+    const { solarSystems } = System.jsonData!;
+    let { jumps } = System.jsonData!;
+  
+    jumps = JSON.parse(JSON.stringify(jumps));
+  
+    const allowedMinWhSize = min_wh_size || 'capital';
+    const whSizeOrder: ShipSize[] = ['small', 'medium', 'large', 'xlarge', 'capital', 'unknown'];
+  
+    if (useThera || useTurnur) {
+      jumps.push(...await EVEScout.getConnections(useThera, useTurnur));
+    }
+  
+    const getSystemId = (name: string) =>
+      solarSystems.find((system) => system.name.toLowerCase() === name.toLowerCase())?.id;
+  
+    const originId = getSystemId(origin);
+    const destinationId = getSystemId(destination);
+    const waypointIds = waypoints.map(getSystemId).filter((id): id is number => id !== undefined);
+  
+    if (!originId || !destinationId || waypointIds.length !== waypoints.length) {
+      return [];
+    }
+  
+    const findShortestPath = (startId: number, endId: number): RouteSystem[] => {
+      const distances: { [systemId: number]: number } = {};
+      const predecessors: { [systemId: number]: number | null } = {};
+      const queue: number[] = [startId];
+  
+      solarSystems.forEach(system => {
+        distances[system.id] = Infinity;
+        predecessors[system.id] = null;
+      });
+      distances[startId] = 0;
+  
+      while (queue.length > 0) {
+        const currentSystemId = queue.shift()!;
+  
+        jumps.forEach(jump => {
+          if (
+            jump.from === currentSystemId &&
+            distances[jump.to] === Infinity &&
+            (!jump.max_ship_size || whSizeOrder.indexOf(jump.max_ship_size) >= whSizeOrder.indexOf(allowedMinWhSize))
+          ) {
+            distances[jump.to] = distances[currentSystemId] + 1;
+            predecessors[jump.to] = currentSystemId;
             queue.push(jump.to);
           }
+        });
+      }
+  
+      const path: RouteSystem[] = [];
+      let currentId: number | null = endId;
+      while (currentId !== null) {
+        const system = solarSystems.find(s => s.id === currentId);
+        if (system) {
+          path.unshift({
+            id: system.id,
+            system: system.name,
+            security: system.security,
+            region: system.region,
+            jumps: distances[currentId],
+          });
         }
+        currentId = predecessors[currentId];
       }
-    }
-
-    // Build the result array
-    const result: { system: string, jumps: number }[] = [];
-
-    for (const systemId of systemIds) {
-      const system = solarSystems.find((s) => s.id === systemId);
-
-      if (system) {
-        const jumps = distances[systemId] !== Infinity ? distances[systemId] : -1;
-        result.push({ system: system.name, jumps });
+  
+      return path;
+    };
+  
+    const calculateRoute = (systemIds: number[]): RouteSystem[] => {
+      let fullRoute: RouteSystem[] = [];
+      for (let i = 0; i < systemIds.length - 1; i++) {
+        const subRoute = findShortestPath(systemIds[i], systemIds[i + 1]);
+        if (subRoute.length === 0) return [];
+        fullRoute = fullRoute.concat(i === 0 ? subRoute : subRoute.slice(1));
       }
+      return fullRoute;
+    };
+  
+    if (keepWaypointOrder) {
+      return calculateRoute([originId, ...waypointIds.filter((id): id is number => id !== undefined), destinationId]);
+    } else {
+      const permute = (arr: number[]): number[][] => {
+        if (arr.length <= 1) return [arr];
+        return arr.flatMap((current, i) => 
+          permute([...arr.slice(0, i), ...arr.slice(i + 1)])
+            .map(perm => [current, ...perm])
+        );
+      };
+  
+      return permute(waypointIds)
+        .map(perm => calculateRoute([originId, ...perm, destinationId]))
+        .reduce((shortest, current) => 
+          (current.length && (!shortest.length || current.length < shortest.length)) ? current : shortest
+        , []);
     }
-
-    return result;
   }
+  
+  public static async getData(systems: RouteSystem[]): Promise<ExtendedRouteSystem[]> {
+    const systemsWithData: ExtendedRouteSystem[] = [];
 
+    const config = AppConfig.getConfig();
 
-  static findSystemsInRegion(regionName: string): string[] {
-    // Load data if not already loaded
-    System.loadData();
+    const systemsData = JSON.parse(await fs.readFile(config.systemsData, { encoding: 'utf-8'}));
 
-    const systemsInRegion: string[] = System.jsonData!.solarSystems.filter(
-      (system) => system.region.toLowerCase() === regionName.toLowerCase()
-    ).map(system => system.name);
-
-    return systemsInRegion;
-  }
-
-  static findSystemsWithinRange(startingSystemName: string, lightyears: number): string[] {
-    // Load data if not already loaded
-    System.loadData();
-
-    const startingSystem: SolarSystem | undefined = System.jsonData!.solarSystems.find(
-      (system) => system.name === startingSystemName
-    );
-
-    if (!startingSystem) {
-      return [];
-    }
-
-    const reachableSystems: SolarSystem[] = System.jsonData!.solarSystems.filter((system) => {
-      if (system.id === startingSystem.id) {
-        return true; // Include the starting system itself
-      }
-
-      if (system.security > 0.4) {
-        return false;
-      }
-
-      const distance = System.calculateDistance(startingSystem, system);
-      const distanceInLightyears = distance * (3.26 / 0.0635);
-
-      return distanceInLightyears <= lightyears;
-    });
-
-    const systemNamesInJumps: string[] = reachableSystems.map((system) => system.name);
-    return systemNamesInJumps;
-  }
-
-  static findSystemsWithStargateJumps(startingSystemName: string, jumps: number): string[] {
-    // Load data if not already loaded
-    System.loadData();
-
-    const startingSystem: SolarSystem | undefined = System.jsonData!.solarSystems.find(
-      (system) => system.name === startingSystemName
-    );
-
-    if (!startingSystem) {
-      return [];
-    }
-
-    function findReachableSystems(
-      currentSystemId: number,
-      jumpsLeft: number,
-      visited: Set<number>,
-      path: number[],
-      reachableSystems: number[]
-    ): void {
-      if (jumpsLeft === 0 || visited.has(currentSystemId)) {
-        return;
-      }
-
-      visited.add(currentSystemId);
-      path.push(currentSystemId);
-
-      const connectedSystems: number[] = System.jsonData!.jumps
-        .filter((jump) => jump.from === currentSystemId)
-        .map((jump) => jump.to);
-
-      connectedSystems.forEach((systemId) => {
-        if (!path.includes(systemId)) {
-          reachableSystems.push(systemId);
-          findReachableSystems(systemId, jumpsLeft - 1, visited, [...path], reachableSystems);
-        }
+    for(const system of systems){
+      const systemData = systemsData.find((s: SystemData) => system.id === s.system_id);
+      systemsWithData.push({
+          ...system,
+          npc_kills: systemData ? systemData.npc_kills : -1,
+          pod_kills: systemData ? systemData.pod_kills : -1,
+          ship_kills: systemData ? systemData.ship_kills : -1,
+          ship_jumps: systemData ? systemData.ship_jumps : -1,
       });
     }
 
-    const reachableSystems: number[] = [];
-    const visited = new Set<number>();
-    const path: number[] = [];
-    findReachableSystems(startingSystem.id, jumps, visited, path, reachableSystems);
-
-    const systemsInJumps: SolarSystem[] = System.jsonData!.solarSystems.filter((system) =>
-      reachableSystems.includes(system.id)
-    );
-
-    const systemNamesInJumps: string[] = systemsInJumps.map((system) => system.name);
-
-    if (!systemNamesInJumps.includes(startingSystemName)) {
-      systemNamesInJumps.push(startingSystemName);
-    }
-
-    return systemNamesInJumps;
+    return systemsWithData;
   }
-
-  static getConnectedSystems(systemNames: string[]): { systemId: number; systemName: string; connectedTo: string[] }[] {
-    // Load data if not already loaded
-    System.loadData();
-
-    const result: { systemId: number; systemName: string; connectedTo: string[] }[] = [];
-
-    systemNames.forEach((systemName) => {
-      const system = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === systemName);
-
-      if (system) {
-        const connectedTo = System.getConnectedTo(system.id);
-        result.push({ systemId: system.id, systemName, connectedTo });
-      }
-    });
-
-    return result;
-  }
-
-  private static getConnectedTo(systemId: number): string[] {
-    const connectedSystems = System.jsonData!.jumps
-      .filter((jump) => jump.from === systemId)
-      .map((jump) => {
-        const connectedSystem = System.jsonData!.solarSystems.find((system) => system.id === jump.to);
-        return connectedSystem ? connectedSystem.name : '';
-      });
-
-    return connectedSystems.filter(Boolean) as string[];
-  }
-
-  static async getKillsAndJumpsForSystems(systemNames: string[], originSystem: string): Promise<{
-    systemId: number;
-    systemName: string;
-    region: string;
-    systemSecurity: number,
-    npcKills: number;
-    podShipKills: number;
-    jumps: number;
-    distance: number,
-    stargateJumps: number;
-  }[]> {
-
-    System.loadData();
-
-    const result: Array<{
-      systemId: number;
-      systemName: string;
-      region: string;
-      systemSecurity: number,
-      npcKills: number;
-      podShipKills: number;
-      jumps: number;
-      distance: number;
-      stargateJumps: number;
-    }> = [];
-
-    const originSystemData = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === originSystem);
-
-    systemNames.forEach((systemName) => {
-      const targetSystem = System.jsonData!.solarSystems.find((solarSystem) => solarSystem.name === systemName);
-      const systemData = System.systemsData!.find((solarSystem) => solarSystem.system_id === targetSystem?.id);
-
-      if (targetSystem && systemData) {
-        const distance = System.calculateDistance(originSystemData!, targetSystem);
-        const distanceInLightyears = distance * (3.26 / 0.0635);
-
-        result.push({
-          systemId: systemData.system_id,
-          systemName: targetSystem.name,
-          region: targetSystem.region,
-          systemSecurity: targetSystem.security,
-          npcKills: systemData.npc_kills,
-          podShipKills: systemData.pod_kills + systemData.ship_kills,
-          jumps: systemData.ship_jumps,
-          distance: distanceInLightyears,
-          stargateJumps: -2,
-        });
-      }
-      else if (systemData === undefined) {
-        const distance = System.calculateDistance(originSystemData!, targetSystem!);
-        const distanceInLightyears = distance * (3.26 / 0.0635);
-
-
-        result.push({
-          systemId: targetSystem!.id,
-          systemName: targetSystem!.name,
-          region: targetSystem!.region,
-          systemSecurity: targetSystem!.security,
-          npcKills: 0,
-          podShipKills: 0,
-          jumps: 0,
-          distance: distanceInLightyears,
-          stargateJumps: -2,
-        });
-      }
-    });
-
-    return result;
-  }
-
-  static async getJumpsFromOrigin(systemNames: string[], originSystem: string): Promise<{
-    system: string;
-    jumps: number;
-  }[]> {
-    try {
-      if (originSystem === '') {
-        return [];
-      }
-
-      const systemIds: number[] = [];
-      const solarSystems = System.jsonData?.solarSystems;
-
-      if (!solarSystems) {
-        throw new Error('Solar system data not available.');
-      }
-
-      for (const system of systemNames) {
-        const systemData = solarSystems.find((solarSystem) => solarSystem.name === system);
-
-        if (!systemData) {
-          throw new Error(`System data not found for ${system}`);
-        }
-
-        systemIds.push(systemData.id);
-      }
-
-      const originSystemData = solarSystems.find((solarSystem) => solarSystem.name === originSystem);
-
-      if (!originSystemData) {
-        throw new Error(`System data not found for ${originSystem}`);
-      }
-
-      const jumps = await System.getJumpsCustom(systemIds, originSystemData.id);
-
-      return jumps;
-    } catch (error: any) {
-      console.error('Error in getJumpsFromOrigin:', error.message);
-      // Handle the error appropriately, e.g., return a default value or rethrow the error.
-      return [];
-    }
-  }
-
 }
 
 export default System;

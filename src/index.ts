@@ -7,18 +7,17 @@ import session from 'express-session';
 import * as schedule from 'node-schedule';
 import passport from 'passport';
 import { createClient } from 'redis';
-import AppConfig from './config';
+import {AppConfig} from './config';
 import logger from './logger';
 import ESI from './models/ESI';
 import routes from './routes';
 
-AppConfig.getConfig();
-
+const config = AppConfig.getConfig();
 
 const app = express();
 
 const corsOptions: CorsOptions = {
-    origin: AppConfig.config?.frontend,
+    origin: config.frontend,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
     preflightContinue: true,
@@ -30,7 +29,7 @@ app.set('trust proxy', 1) // trust first proxy
 
 // Initialize client.
 const redisClient = createClient({
-    url: `redis://${AppConfig.config?.redisHost}:${AppConfig.config?.redisPort}`,
+    url: `redis://${config.redisHost}:${config.redisPort}`,
 })
 redisClient.connect().catch(console.error)
 
@@ -54,21 +53,10 @@ app.use(bodyParser.json());
 
 ESI.getSystemData();
 
-const systemDataRefreshJob = schedule.scheduleJob('5 * * * *', ESI.getSystemData);
+schedule.scheduleJob('5 * * * *', ESI.getSystemData);
 
-
-app.listen(AppConfig.config?.port, () => {
-    logger.info(`Server online on port ${AppConfig.config?.port}`);
+app.listen(config.port, () => {
+    logger.info(`Server online on port ${config.port}`);
 });
 
 app.use(routes);
-
-app.get('/system-data-refresh/minutes-remaining', (req: Request, res: Response) => {
-    const nextInvocation = systemDataRefreshJob.nextInvocation();
-
-    // Calculate the number of minutes remaining
-    const now = new Date();
-    const minutesRemaining = Math.ceil((nextInvocation.getTime() - now.getTime()) / (1000 * 60));
-
-    res.json({ minutesRemaining });
-})
