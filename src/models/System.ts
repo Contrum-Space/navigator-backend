@@ -27,7 +27,7 @@ interface SystemData {
   ship_jumps: number;
 }
 
-interface RouteSystem {
+export interface RouteSystem {
   id: number;
   system: string;
   security: number;
@@ -35,7 +35,7 @@ interface RouteSystem {
   jumps: number;
 }
 
-interface ExtendedRouteSystem extends RouteSystem {
+export interface ExtendedRouteSystem extends RouteSystem {
   npc_kills: number;
   pod_kills: number;
   ship_kills: number;

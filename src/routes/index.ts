@@ -5,6 +5,11 @@ import passport from 'passport';
 import {AppConfig} from '../config';
 import ESI from '../models/ESI';
 import System from '../models/System';
+import client from 'prom-client';
+import { Worker } from 'worker_threads';
+import path from 'path';
+
+const gauge = new client.Gauge({ name: 'route_execution_time_seconds', help: 'metric_help' });
 
 AppConfig.getConfig();
 
@@ -89,12 +94,45 @@ app.get('/auth', passport.authenticate('eveonline-sso'));
 app.get('/auth/callback',
     passport.authenticate('eveonline-sso', { successReturnToOrRedirect: AppConfig.getConfig().frontend, failureRedirect: '/auth' }));
 
+let routeExecutionTimes: number[] = [];
+
 app.post('/route', async (req: Request, res: Response) => {
+    const startTime = process.hrtime();
+
     const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
-    const route = await System.getRoute(origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize);
-    const systemsWithData = await System.getData(route);
-    res.send({ jumps: route.length, route: systemsWithData});
+    
+    const resolvedPath = path.join(__dirname, '..', 'routeWorker.ts');
+    const worker = new Worker(resolvedPath, {
+        workerData: { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize },
+        execArgv: /\.ts$/.test(resolvedPath) ? ["--require", "ts-node/register"] : undefined,
+    });
+
+    worker.on('message', async (result) => {
+        const { route } = result;
+        const systemsWithData = await System.getData(route);
+        
+        const endTime = process.hrtime(startTime);
+        const executionTime = endTime[0] * 1000 + endTime[1] / 1000000; // Convert to milliseconds
+        routeExecutionTimes.push(executionTime);
+
+        res.send({ jumps: route.length, route: systemsWithData, executionTime });
+    });
+
+    worker.on('error', (error) => {
+        console.error(error);
+        res.status(500).send('An error occurred while calculating the route');
+    });
 });
+
+// Report execution times to Prometheus every minute
+setInterval(() => {
+    if (routeExecutionTimes.length > 0) {
+        const averageExecutionTime = routeExecutionTimes.reduce((sum, time) => sum + time, 0) / routeExecutionTimes.length;
+        // Assuming you have a Prometheus client set up
+        gauge.set(averageExecutionTime / 1000);
+        routeExecutionTimes = []; // Clear the array
+    }
+}, 1000);
 
 app.post('/search', async (req: Request, res: Response) => {
     const { query } = req.body;
@@ -123,6 +161,11 @@ app.get('/current-location', checkForToken, async (req: Request, res: Response) 
         return;
     }
     res.send({ location: systemName });
+});
+
+app.get('/metrics', async (req: Request, res: Response) => {
+    res.set('Content-Type', client.register.contentType);
+    res.send(await client.register.metrics());
 });
 
 app.get('/logout', (req, res, next) => {

@@ -11,6 +11,7 @@ import {AppConfig} from './config';
 import logger from './logger';
 import ESI from './models/ESI';
 import routes from './routes';
+import blocked from 'blocked';
 
 const config = AppConfig.getConfig();
 
@@ -27,21 +28,21 @@ app.use(cors(corsOptions));
 
 app.set('trust proxy', 1) // trust first proxy
 
-// Initialize client.
-const redisClient = createClient({
-    url: `redis://${config.redisHost}:${config.redisPort}`,
-})
-redisClient.connect().catch(console.error)
+// // Initialize client.
+// const redisClient = createClient({
+//     url: `redis://${config.redisHost}:${config.redisPort}`,
+// })
+// redisClient.connect().catch(console.error)
 
-// Initialize store.
-const redisStore = new RedisStore({
-    client: redisClient,
-    prefix: "myapp:",
-})
+// // Initialize store.
+// const redisStore = new RedisStore({
+//     client: redisClient,
+//     prefix: "myapp:",
+// })
 
 
 app.use(session({
-    store: redisStore,
+    // store: redisStore,
     secret: 'keyboard cat',
     resave: false,
     saveUninitialized: true,
@@ -60,3 +61,4 @@ app.listen(config.port, () => {
 });
 
 app.use(routes);
+
