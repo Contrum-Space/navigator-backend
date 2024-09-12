@@ -2,22 +2,48 @@
 import axios from 'axios';
 import express, { NextFunction, Request, Response } from 'express';
 import passport from 'passport';
-import {AppConfig} from '../config';
-import ESI from '../models/ESI';
-import System from '../models/System';
-import client from 'prom-client';
 import { Worker } from 'worker_threads';
 import path from 'path';
+import client, { Registry } from 'prom-client';
 
-const gauge = new client.Gauge({ name: 'route_execution_time_seconds', help: 'metric_help' });
-
-AppConfig.getConfig();
+import { AppConfig } from '../config';
+import ESI from '../models/ESI';
+import System from '../models/System';
 
 const EveOnlineSsoStrategy = require('passport-eveonline-sso');
 const refresh = require('passport-oauth2-refresh');
 
+
 const app = express();
-const config = AppConfig.getConfig();   
+const config = AppConfig.getConfig();
+
+// Prometheus metrics
+
+const collectDefaultMetrics = client.collectDefaultMetrics;
+collectDefaultMetrics({ gcDurationBuckets: [0.1, 0.2, 0.3] });
+
+const routeExecutionTimeHistogram = new client.Histogram({
+    name: 'route_execution_time_seconds',
+    help: 'Runtime of route calculation',
+    buckets: [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1200, 3600, 7200, 14400, 28800, 57600, 115200, 230400, 460800, 921600, 1843200, 3686400, 7372800], // Adjust these buckets as needed
+});
+
+const recordRouteExecutionTime = (executionTime: number) => {
+    routeExecutionTimeHistogram.observe(executionTime / 1000);
+};
+
+const workerGauge = new client.Gauge({
+    name: 'spawned_worker_threads',
+    help: 'Number of spawned worker threads',
+    collect() {
+        this.set(spawnedWorkerThreads);
+    }
+});
+
+let routeExecutionTimes: number[] = [];
+let spawnedWorkerThreads = 0;
+
+// Passport configuration
 const strategy = new EveOnlineSsoStrategy({
     clientID: config.clientId,
     secretKey: config.secretKey,
@@ -27,30 +53,25 @@ const strategy = new EveOnlineSsoStrategy({
     function (accessToken: string, refreshToken: string, params: any, profile: any, done: (error: any, user?: any) => void) {
         return done(null, { accessToken, refreshToken, params, profile });
     }
-)
+);
 
 passport.use(strategy);
 refresh.use(strategy);
 
-
-passport.serializeUser(function (user, done) {
+passport.serializeUser((user, done) => {
     done(null, user);
 });
 
-passport.deserializeUser(function (user: any, done) {
+passport.deserializeUser((user: any, done) => {
     done(null, user);
 });
 
-
+// Middleware
 const checkForToken = async (req: Request, res: Response, next: NextFunction) => {
     if (req.user === undefined) {
-        res.sendStatus(401);
-        return;
+        return res.sendStatus(401);
     }
 
-    const config = AppConfig.getConfig();   
-
-    // refresh token
     try {
         const response = await axios.post(
             'https://login.eveonline.com/v2/oauth/token',
@@ -63,76 +84,67 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
             }
         );
 
-        // Update the user object with the new access token
         (req.user as any).accessToken = response.data.access_token;
         next();
     } catch (error: any) {
         console.error('Error refreshing token:', error.response ? error.response.data : error.message);
         res.sendStatus(401);
     }
+};
 
-}
+// Routes
+app.get('/profile', (req, res) => {
+    if (!req.user) {
+        return res.send({ user: null });
+    }
+    res.send({ user: (req.user as any).profile });
+});
 
-app.get('/profile',
-    function (req, res) {
-        if(!req.user){
-            res.send({ user: null });
-            return;
-        }
-        res.send({ user: (req.user as any).profile });
-    });
-
-app.get('/logout', function (req: Request, res: Response){
-    req.session.destroy(function (err) {
-        console.log(err);
-        res.sendStatus(200); //Inside a callback… bulletproof!
+app.get('/logout', (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+        if (err) console.log(err);
+        res.sendStatus(200);
     });
 });
 
 app.get('/auth', passport.authenticate('eveonline-sso'));
 
-app.get('/auth/callback',
-    passport.authenticate('eveonline-sso', { successReturnToOrRedirect: AppConfig.getConfig().frontend, failureRedirect: '/auth' }));
-
-let routeExecutionTimes: number[] = [];
+app.get('/auth/callback', passport.authenticate('eveonline-sso', {
+    successReturnToOrRedirect: AppConfig.getConfig().frontend,
+    failureRedirect: '/auth'
+}));
 
 app.post('/route', async (req: Request, res: Response) => {
     const startTime = process.hrtime();
-
     const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
     
-    const resolvedPath = path.join(__dirname, '..', 'routeWorker.ts');
+    const resolvedPath = path.join(__dirname, '..', process.env.NODE_ENV === 'production' ? 'routeWorker.js' : 'routeWorker.ts');
     const worker = new Worker(resolvedPath, {
         workerData: { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize },
         execArgv: /\.ts$/.test(resolvedPath) ? ["--require", "ts-node/register"] : undefined,
     });
+
+    spawnedWorkerThreads++;
 
     worker.on('message', async (result) => {
         const { route } = result;
         const systemsWithData = await System.getData(route);
         
         const endTime = process.hrtime(startTime);
-        const executionTime = endTime[0] * 1000 + endTime[1] / 1000000; // Convert to milliseconds
+        const executionTime = endTime[0] * 1000 + endTime[1] / 1000000;
         routeExecutionTimes.push(executionTime);
+        recordRouteExecutionTime(executionTime); // Add this line
 
         res.send({ jumps: route.length, route: systemsWithData, executionTime });
+        spawnedWorkerThreads--;
     });
 
     worker.on('error', (error) => {
         console.error(error);
         res.status(500).send('An error occurred while calculating the route');
+        spawnedWorkerThreads--;
     });
 });
-
-// Report execution times to Prometheus every minute
-setInterval(() => {
-    if (routeExecutionTimes.length > 0) {
-        const averageExecutionTime = routeExecutionTimes.reduce((sum, time) => sum + time, 0) / routeExecutionTimes.length;
-        // Assuming you have a Prometheus client set up
-        gauge.set(averageExecutionTime / 1000);
-        routeExecutionTimes = []; // Clear the array
-    }
-}, 1000);
 
 app.post('/search', async (req: Request, res: Response) => {
     const { query } = req.body;
@@ -156,24 +168,12 @@ app.post('/set-waypoints', checkForToken, async (req: Request, res: Response) =>
 app.get('/current-location', checkForToken, async (req: Request, res: Response) => {
     const location = await ESI.getCurrentLocation((req.user as any).profile.CharacterID, (req.user as any).accessToken);
     const systemName = await System.resolveIDToName(location);
-    if(systemName === 'N/A'){
-        res.send({ location: 'Unknown' });
-        return;
-    }
-    res.send({ location: systemName });
+    res.send({ location: systemName === 'N/A' ? 'Unknown' : systemName });
 });
 
 app.get('/metrics', async (req: Request, res: Response) => {
     res.set('Content-Type', client.register.contentType);
     res.send(await client.register.metrics());
-});
-
-app.get('/logout', (req, res, next) => {
-    req.logout(req.user!, (err) => {
-        if (err) return next(err);
-    });
-    res.clearCookie('connect.sid');
-    res.send({ isAuth: req.isAuthenticated(), user: req.user });
 });
 
 export default app;
