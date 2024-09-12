@@ -25,7 +25,6 @@ collectDefaultMetrics({ gcDurationBuckets: [0.1, 0.2, 0.3] });
 const routeExecutionTimeHistogram = new client.Histogram({
     name: 'route_execution_time_seconds',
     help: 'Runtime of route calculation',
-    buckets: [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1200, 3600, 7200, 14400, 28800, 57600, 115200, 230400, 460800, 921600, 1843200, 3686400, 7372800], // Adjust these buckets as needed
 });
 
 const recordRouteExecutionTime = (executionTime: number) => {
@@ -136,13 +135,11 @@ app.post('/route', async (req: Request, res: Response) => {
         recordRouteExecutionTime(executionTime); // Add this line
 
         res.send({ jumps: route.length, route: systemsWithData, executionTime });
-        spawnedWorkerThreads--;
     });
 
     worker.on('error', (error) => {
         console.error(error);
         res.status(500).send('An error occurred while calculating the route');
-        spawnedWorkerThreads--;
     });
 });
 
