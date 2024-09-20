@@ -1,5 +1,5 @@
 # Use the official Alpine Linux image with Node.js pre-installed
-FROM node:20-alpine
+FROM node:20
 
 # Install PM2 globally
 RUN npm install -g pm2
