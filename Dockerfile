@@ -1,6 +1,10 @@
 # Use the official Alpine Linux image with Node.js pre-installed
 FROM node:20
 
+# Install Chromium
+RUN apt-get update && apt-get install -y chromium \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set the working directory inside the container
 WORKDIR /app
 
