@@ -1,30 +1,26 @@
-# Use Alpine-based Node.js image for smaller size
-FROM node:20-alpine
+# Use the official Alpine Linux image with Node.js pre-installed
+FROM node:20
 
-# Create app directory and set ownership
+# Set the working directory inside the container
 WORKDIR /app
 
-# Create and use non-root user for security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
-    chown -R appuser:appgroup /app
+# Copy package.json and package-lock.json to the working directory
+COPY package.json ./
+COPY package-lock.json ./
+# Install dependencies
+RUN npm install
 
-# Install dependencies first (better layer caching)
-COPY package*.json ./
-RUN npm ci && \
-    npm cache clean --force
+# Copy the rest of the application code
+COPY . .
 
-# Copy source files and build
-COPY --chown=appuser:appgroup . .
-RUN npm run build && \
-    rm -rf src/ && \
-    rm -rf node_modules/typescript && \
-    cp -r public ./
+# Build TypeScript code
+RUN npm run build
 
-# Switch to non-root user
-USER appuser
+RUN ls -l /app
 
-# Expose the port
+
+# Expose the port that your application will run on
 EXPOSE 80
 
-# Command to start the application
+# Command to start the application with PM2
 CMD ["node", "build/index.js"]
