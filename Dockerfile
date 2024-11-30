@@ -10,7 +10,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
 
 # Install dependencies first (better layer caching)
 COPY package*.json ./
-RUN npm ci --only=production && \
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source files and build
