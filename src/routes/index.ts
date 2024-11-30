@@ -5,6 +5,9 @@ import passport from 'passport';
 import { Worker } from 'worker_threads';
 import path from 'path';
 import client, { Registry } from 'prom-client';
+import nodeHtmlToImage from 'node-html-to-image';
+import fs from 'fs';
+import crypto from 'crypto';
 
 import { AppConfig } from '../config';
 import ESI from '../models/ESI';
@@ -13,6 +16,11 @@ import System from '../models/System';
 const EveOnlineSsoStrategy = require('passport-eveonline-sso');
 const refresh = require('passport-oauth2-refresh');
 
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour in milliseconds
+const routeCache = new Map<string, {
+    data: any,
+    timestamp: number
+}>();
 
 const app = express();
 const config = AppConfig.getConfig();
@@ -117,6 +125,17 @@ app.post('/route', async (req: Request, res: Response) => {
     const startTime = process.hrtime();
     const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
     
+    const cacheKey = crypto.createHash('md5').update(
+        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize })
+    ).digest('hex');
+
+    const cached = routeCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        const endTime = process.hrtime(startTime);
+        const executionTime = endTime[0] * 1000 + endTime[1] / 1000000;
+        return res.send({ ...cached.data, executionTime, cached: true });
+    }
+    
     const resolvedPath = path.join(__dirname, '..', process.env.NODE_ENV === 'production' ? 'routeWorker.js' : 'routeWorker.ts');
     const worker = new Worker(resolvedPath, {
         workerData: { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize },
@@ -125,19 +144,38 @@ app.post('/route', async (req: Request, res: Response) => {
 
     spawnedWorkerThreads++;
 
+    // Set a timeout to terminate the worker after 30 seconds
+    const timeout = setTimeout(() => {
+        worker.terminate();
+        spawnedWorkerThreads--;
+        res.status(504).send('Route calculation timed out');
+    }, 45000);
+
     worker.on('message', async (result) => {
+        clearTimeout(timeout);
+        spawnedWorkerThreads--;
+        
         const { route } = result;
         const systemsWithData = await System.getData(route);
         
         const endTime = process.hrtime(startTime);
         const executionTime = endTime[0] * 1000 + endTime[1] / 1000000;
         routeExecutionTimes.push(executionTime);
-        recordRouteExecutionTime(executionTime); // Add this line
+        recordRouteExecutionTime(executionTime);
 
-        res.send({ jumps: route.length, route: systemsWithData, executionTime });
+        const responseData = { jumps: route.length, route: systemsWithData, executionTime };
+        
+        routeCache.set(cacheKey, {
+            data: responseData,
+            timestamp: Date.now()
+        });
+
+        res.send(responseData);
     });
 
     worker.on('error', (error) => {
+        clearTimeout(timeout);
+        spawnedWorkerThreads--;
         console.error(error);
         res.status(500).send('An error occurred while calculating the route');
     });
@@ -172,5 +210,169 @@ app.get('/metrics', async (req: Request, res: Response) => {
     res.set('Content-Type', client.register.contentType);
     res.send(await client.register.metrics());
 });
+
+app.get('/og', async (req: Request, res: Response) => {
+    const { from, to, waypoints, thera, turnur, size } = req.query;
+    
+    if (!from || !to) {
+        return res.status(400).send('Missing parameters');
+    }
+
+    try {
+        // Calculate current route with user's preferences
+        const routeResponse = await axios.post(`http://localhost:${config.port}/route`, {
+            origin: from,
+            destination: to,
+            waypoints: waypoints ? String(waypoints).split(',') : [],
+            useThera: thera === 'true',
+            useTurnur: turnur === 'true',
+            minWhSize: size
+        });
+        const jumps = routeResponse.data.jumps;
+
+        // Calculate old route without Thera/Turnur
+        const oldRouteResponse = await axios.post(`http://localhost:${config.port}/route`, {
+            origin: from,
+            destination: to,
+            waypoints: waypoints ? String(waypoints).split(',') : [],
+            useThera: false,
+            useTurnur: false
+        });
+        const oldJumps = oldRouteResponse.data.jumps;
+
+        const bgPath = path.join(__dirname, '../../public/starfield.png');
+        const bgBase64 = fs.readFileSync(bgPath).toString('base64');
+        const bgDataUri = `data:image/png;base64,${bgBase64}`;
+
+        // Format waypoints display
+        let waypointsDisplay = '';
+        if (waypoints) {
+            const waypointsList = String(waypoints).split(',');
+            const displayWaypoints = waypointsList.slice(0, 2);
+            const remainingCount = waypointsList.length - 2;
+            waypointsDisplay = `
+                <div class="waypoints">
+                    via ${displayWaypoints.join(', ')}
+                    ${remainingCount > 0 ? `<span class="more">+${remainingCount} more</span>` : ''}
+                </div>`;
+        }
+
+        const image = await nodeHtmlToImage({
+            html: `
+                <html>
+                    <head>
+                        <style>
+                            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap');
+                            body {
+                                width: 1200px;
+                                height: 630px;
+                                margin: 0;
+                                padding: 0;
+                                font-family: 'Inter', system-ui, sans-serif;
+                                background-image: url('{{{bg}}}');
+                                background-size: cover;
+                                color: white;
+                                display: flex;
+                                flex-direction: column;
+                            }
+                            .logo {
+                                position: absolute;
+                                top: 40px;
+                                left: 40px;
+                                width: 64px;
+                                height: 64px;
+                                border-radius: 8px;
+                            }
+                            .container {
+                                flex: 1;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            }
+                            .content {
+                                text-align: center;
+                                background: rgba(0, 0, 0, 0.4);
+                                backdrop-filter: blur(10px);
+                                padding: 40px 60px;
+                                border-radius: 16px;
+                                border: 1px solid rgba(255, 255, 255, 0.1);
+                            }
+                            .route {
+                                font-size: 84px;
+                                font-weight: 700;
+                                margin-bottom: 8px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 24px;
+                            }
+                            .arrow {
+                                color: #3B82F6;
+                            }
+                            .details {
+                                font-size: 42px;
+                                color: #94A3B8;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 16px;
+                            }
+                            .accent {
+                                color: #3B82F6;
+                                font-weight: 500;
+                            }
+                            .waypoints {
+                                font-size: 32px;
+                                color: #94A3B8;
+                                margin-bottom: 16px;
+                                text-align: center;
+                            }
+                            .more {
+                                color: #64748B;
+                                font-style: italic;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="content">
+                                <div class="route">
+                                    ${from} <span class="arrow">→</span> ${to}
+                                </div>
+                                ${waypointsDisplay}
+                                <div class="details">
+                                    <span class="accent">${jumps}</span> jumps 
+                                    ${jumps !== oldJumps ? `<span style="color: #64748B">(was ${oldJumps})</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </body>
+                </html>
+            `,
+            type: 'png',
+            content: {
+                bg: bgDataUri
+            }
+        });
+
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(image);
+    } catch (e) {
+        console.error(e);
+        return res.status(500).send('Failed to generate image');
+    }
+});
+
+const cleanupCache = () => {
+    const now = Date.now();
+    for (const [key, value] of routeCache.entries()) {
+        if (now - value.timestamp > CACHE_TTL) {
+            routeCache.delete(key);
+        }
+    }
+};
+
+setInterval(cleanupCache, CACHE_TTL);
 
 export default app;

@@ -143,27 +143,55 @@ class System {
   
     const findShortestPath = (startId: number, endId: number): RouteSystem[] => {
       const distances: { [systemId: number]: number } = {};
+      const gScores: { [systemId: number]: number } = {};
       const predecessors: { [systemId: number]: number | null } = {};
-      const queue: number[] = [startId];
-  
+      const openSet = new Set<number>([startId]);
+      
+      // Calculate heuristic (straight-line distance)
+      const getHeuristic = (fromId: number, toId: number): number => {
+        const from = solarSystems.find(s => s.id === fromId)!;
+        const to = solarSystems.find(s => s.id === toId)!;
+        return Math.sqrt(
+          Math.pow(to.x - from.x, 2) + 
+          Math.pow(to.y - from.y, 2) + 
+          Math.pow(to.z - from.z, 2)
+        ) / 10000000; // Scale down the distance to be comparable to jump counts
+      };
+
       solarSystems.forEach(system => {
         distances[system.id] = Infinity;
+        gScores[system.id] = Infinity;
         predecessors[system.id] = null;
       });
-      distances[startId] = 0;
-  
-      while (queue.length > 0) {
-        const currentSystemId = queue.shift()!;
-  
+      
+      distances[startId] = getHeuristic(startId, endId);
+      gScores[startId] = 0;
+
+      while (openSet.size > 0) {
+        // Find node with lowest f-score in openSet
+        const currentSystemId = Array.from(openSet).reduce((a, b) => 
+          distances[a] < distances[b] ? a : b
+        );
+
+        if (currentSystemId === endId) {
+          break;
+        }
+
+        openSet.delete(currentSystemId);
+
         jumps.forEach(jump => {
           if (
             jump.from === currentSystemId &&
-            distances[jump.to] === Infinity &&
             (!jump.max_ship_size || whSizeOrder.indexOf(jump.max_ship_size) >= whSizeOrder.indexOf(allowedMinWhSize))
           ) {
-            distances[jump.to] = distances[currentSystemId] + 1;
-            predecessors[jump.to] = currentSystemId;
-            queue.push(jump.to);
+            const tentativeGScore = gScores[currentSystemId] + 1;
+
+            if (tentativeGScore < gScores[jump.to]) {
+              predecessors[jump.to] = currentSystemId;
+              gScores[jump.to] = tentativeGScore;
+              distances[jump.to] = tentativeGScore + getHeuristic(jump.to, endId);
+              openSet.add(jump.to);
+            }
           }
         });
       }
