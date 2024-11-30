@@ -1,29 +1,29 @@
-# Use the official Alpine Linux image with Node.js pre-installed
-FROM node:20
+# Use Alpine-based Node.js image for smaller size
+FROM node:20-alpine
 
-# Install PM2 globally
-RUN npm install -g pm2
-
-# Set the working directory inside the container
+# Create app directory and set ownership
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
-COPY package.json ./
-COPY package-lock.json ./
-# Install dependencies
-RUN npm install
+# Create and use non-root user for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
+    chown -R appuser:appgroup /app
 
-# Copy the rest of the application code
-COPY . .
+# Install dependencies first (better layer caching)
+COPY package*.json ./
+RUN npm ci --only=production && \
+    npm cache clean --force
 
-# Build TypeScript code
-RUN npm run build
+# Copy source files and build
+COPY --chown=appuser:appgroup . .
+RUN npm run build && \
+    rm -rf src/ && \
+    rm -rf node_modules/typescript
 
-RUN ls -l /app
+# Switch to non-root user
+USER appuser
 
-
-# Expose the port that your application will run on
+# Expose the port
 EXPOSE 80
 
-# Command to start the application with PM2
+# Command to start the application
 CMD ["node", "build/index.js"]
