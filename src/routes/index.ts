@@ -240,7 +240,7 @@ app.get('/og', async (req: Request, res: Response) => {
         });
         const oldJumps = oldRouteResponse.data.jumps;
 
-        const bgPath = path.join(__dirname, '../../public/starfield.png');
+        const bgPath = path.join(__dirname, '../../public/Starfield.png');
         const bgBase64 = fs.readFileSync(bgPath).toString('base64');
         const bgDataUri = `data:image/png;base64,${bgBase64}`;
 
