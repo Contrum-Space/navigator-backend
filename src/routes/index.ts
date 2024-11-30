@@ -352,6 +352,9 @@ app.get('/og', async (req: Request, res: Response) => {
             type: 'png',
             content: {
                 bg: bgDataUri
+            },
+            puppeteerArgs: {
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
             }
         });
 
