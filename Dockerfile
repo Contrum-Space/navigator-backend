@@ -18,7 +18,7 @@ COPY --chown=appuser:appgroup . .
 RUN npm run build && \
     rm -rf src/ && \
     rm -rf node_modules/typescript && \
-    mv public ./
+    cp -r public ./
 
 # Switch to non-root user
 USER appuser
