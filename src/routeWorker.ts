@@ -3,7 +3,6 @@ import System from './models/System';
 
 async function performRouteCalculation() {
   const { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize } = workerData;
-  console.log('Input parameters:', origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize);
   try {
     const route = await System.getRoute(origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize);
     parentPort.postMessage({ route });

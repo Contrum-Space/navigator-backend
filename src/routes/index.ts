@@ -8,6 +8,7 @@ import client, { Registry } from 'prom-client';
 import nodeHtmlToImage from 'node-html-to-image';
 import fs from 'fs';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 
 import { AppConfig } from '../config';
 import ESI from '../models/ESI';
@@ -99,6 +100,61 @@ const checkForToken = async (req: Request, res: Response, next: NextFunction) =>
     }
 };
 
+// Update rate limiters with different limits
+const routeCalculationLimiterWithWaypoints = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 5, // Limit each IP to 5 requests per minute when using waypoints
+    message: 'Too many route calculations with waypoints, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const routeCalculationLimiterNoWaypoints = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 15, // Limit each IP to 15 requests per minute for direct routes
+    message: 'Too many route calculations, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Add middleware to choose the appropriate rate limiter
+const selectRateLimiter = (req: Request, res: Response, next: NextFunction) => {
+    const { waypoints } = req.body;
+    console.log(waypoints);
+    if (waypoints && waypoints.length > 0) {
+        routeCalculationLimiterWithWaypoints(req, res, next);
+    } else {
+        routeCalculationLimiterNoWaypoints(req, res, next);
+    }
+};
+
+// Add this before app.use(generalLimiter)
+const generalLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, // Limit each IP to 60 requests per minute
+    message: 'Too many requests, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter);
+
+// Add this middleware function before the routes
+const skipRateLimitForCache = (req: Request, res: Response, next: NextFunction) => {
+    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
+    
+    const cacheKey = crypto.createHash('md5').update(
+        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize })
+    ).digest('hex');
+
+    const cached = routeCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        return next();
+    }
+    next();
+};
+
 // Routes
 app.get('/profile', (req, res) => {
     if (!req.user) {
@@ -121,9 +177,16 @@ app.get('/auth/callback', passport.authenticate('eveonline-sso', {
     failureRedirect: '/auth'
 }));
 
-app.post('/route', async (req: Request, res: Response) => {
+app.post('/route', 
+    skipRateLimitForCache,
+    selectRateLimiter, 
+    async (req: Request, res: Response) => {
     const startTime = process.hrtime();
     const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
+
+    if (waypoints && waypoints.length > 3) {
+        return res.status(400).send('Waypoints limit reached');
+    }
     
     const cacheKey = crypto.createHash('md5').update(
         JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize })
