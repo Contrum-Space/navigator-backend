@@ -11,7 +11,6 @@ import {AppConfig} from './config';
 import logger from './logger';
 import ESI from './models/ESI';
 import routes from './routes';
-import blocked from 'blocked';
 
 const config = AppConfig.getConfig();
 
@@ -28,21 +27,26 @@ app.use(cors(corsOptions));
 
 app.set('trust proxy', 1) // trust first proxy
 
-// // Initialize client.
-const redisClient = createClient({
-    url: `redis://${config.redisHost}:${config.redisPort}`,
-})
-redisClient.connect().catch(console.error)
+// Initialize session store based on environment
+let sessionStore;
+if (process.env.NODE_ENV === 'production') {
+    // Initialize Redis client and store for production
+    const redisClient = createClient({
+        url: `redis://${config.redisHost}:${config.redisPort}`,
+    });
+    redisClient.connect().catch(console.error);
 
-// // Initialize store.
-const redisStore = new RedisStore({
-    client: redisClient,
-    prefix: "myapp:",
-})
-
+    sessionStore = new RedisStore({
+        client: redisClient,
+        prefix: "myapp:",
+    });
+} else {
+    // Use default MemoryStore for local development
+    logger.warn('Using MemoryStore for sessions - not suitable for production use');
+}
 
 app.use(session({
-    store: redisStore,
+    store: sessionStore, // Will be undefined in development, defaulting to MemoryStore
     secret: 'keyboard cat',
     resave: false,
     saveUninitialized: true,
