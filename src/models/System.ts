@@ -42,11 +42,17 @@ export interface ExtendedRouteSystem extends RouteSystem {
   ship_jumps: number;
 }
 
+export interface TrigData {
+  system_id: number;
+  status: string;
+}
+
 type ShipSize = 'small' | 'medium' | 'large' | 'xlarge' | 'capital' | 'unknown';
 
 class System {
   public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null; // systems data cache
   public static systemsData: SystemData[] | null = null; // systems data cache
+  public static trigData: TrigData[] | null = null; // trig data cache
 
   private static async loadData(): Promise<void> {
     if (System.jsonData) return;
@@ -54,13 +60,15 @@ class System {
     const config = AppConfig.getConfig();
 
     try {
-      const [universeData, systemsData] = await Promise.all([
+      const [universeData, systemsData, trigData] = await Promise.all([
         fs.readFile(config.universeDataPath, 'utf-8'),
-        fs.readFile(config.systemsData, 'utf-8')
+        fs.readFile(config.systemsData, 'utf-8'),
+        fs.readFile(config.trigDataPath, 'utf-8')
       ]);
 
       System.jsonData = JSON.parse(universeData);
       System.systemsData = JSON.parse(systemsData);
+      System.trigData = JSON.parse(trigData);
     } catch (error) {
       throw new Error('Failed to load system data: ' + (error as Error).message);
     }
@@ -115,7 +123,10 @@ class System {
     useThera: boolean,
     useTurnur: boolean,
     keepWaypointOrder: boolean,
-    min_wh_size?: ShipSize
+    avoidSystems: string[],
+    avoidEdencom: boolean,
+    avoidTrig: boolean,
+    min_wh_size?: ShipSize,
   ): Promise<RouteSystem[]> {
     await System.loadData();
     const { solarSystems } = System.jsonData!;
@@ -139,6 +150,24 @@ class System {
   
     if (!originId || !destinationId || waypointIds.length !== waypoints.length) {
       return [];
+    }
+  
+    const avoidSystemIds = avoidSystems
+      .map(getSystemId)
+      .filter((id): id is number => id !== undefined);
+  
+    if (avoidEdencom || avoidTrig) {
+      const trigSystemsToAvoid = System.trigData!.filter(system => {
+        if (avoidEdencom && ['edencom_minor_victory', 'fortress'].includes(system.status)) {
+          return true;
+        }
+        if (avoidTrig && ['final_liminality', 'triglavian_minor_victory'].includes(system.status)) {
+          return true;
+        }
+        return false;
+      }).map(system => system.system_id);
+      
+      avoidSystemIds.push(...trigSystemsToAvoid);
     }
   
     const findShortestPath = (startId: number, endId: number): RouteSystem[] => {
@@ -168,7 +197,6 @@ class System {
       gScores[startId] = 0;
 
       while (openSet.size > 0) {
-        // Find node with lowest f-score in openSet
         const currentSystemId = Array.from(openSet).reduce((a, b) => 
           distances[a] < distances[b] ? a : b
         );
@@ -180,6 +208,10 @@ class System {
         openSet.delete(currentSystemId);
 
         jumps.forEach(jump => {
+          if (avoidSystemIds.includes(jump.to)) {
+            return;
+          }
+
           if (
             jump.from === currentSystemId &&
             (!jump.max_ship_size || whSizeOrder.indexOf(jump.max_ship_size) >= whSizeOrder.indexOf(allowedMinWhSize))

@@ -2,9 +2,9 @@ const { parentPort, workerData } = require('worker_threads');
 import System from './models/System';
 
 async function performRouteCalculation() {
-  const { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize } = workerData;
+  const { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize, avoidSystems, avoidEdencom, avoidTrig } = workerData;
   try {
-    const route = await System.getRoute(origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize);
+    const route = await System.getRoute(origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder,avoidSystems, avoidEdencom, avoidTrig, minWhSize);
     parentPort.postMessage({ route });
   } catch (error: any) {
     console.error('Error in route calculation:', error);

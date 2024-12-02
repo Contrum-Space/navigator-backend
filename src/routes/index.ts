@@ -119,6 +119,11 @@ const routeCalculationLimiterNoWaypoints = rateLimit({
 
 // Add middleware to choose the appropriate rate limiter
 const selectRateLimiter = (req: Request, res: Response, next: NextFunction) => {
+    // Skip rate limiting in local environment
+    if (process.env.NODE_ENV === 'development') {
+        return next();
+    }
+
     const { waypoints } = req.body;
     console.log(waypoints);
     if (waypoints && waypoints.length > 0) {
@@ -138,14 +143,20 @@ const generalLimiter = rateLimit({
 });
 
 // Apply general rate limiting to all routes
-app.use(generalLimiter);
+app.use((req: Request, res: Response, next: NextFunction) => {
+    // Skip rate limiting in local environment
+    if (process.env.NODE_ENV === 'development') {
+        return next();
+    }
+    generalLimiter(req, res, next);
+});
 
 // Add this middleware function before the routes
 const skipRateLimitForCache = (req: Request, res: Response, next: NextFunction) => {
-    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
+    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize, avoidSystems } = req.body;
     
     const cacheKey = crypto.createHash('md5').update(
-        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize })
+        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize, avoidSystems })
     ).digest('hex');
 
     const cached = routeCache.get(cacheKey);
@@ -182,14 +193,14 @@ app.post('/route',
     selectRateLimiter, 
     async (req: Request, res: Response) => {
     const startTime = process.hrtime();
-    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize } = req.body;
+    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize, avoidSystems, avoidEdencom, avoidTrig } = req.body;
 
     if (waypoints && waypoints.length > 3) {
         return res.status(400).send('Waypoints limit reached');
     }
     
     const cacheKey = crypto.createHash('md5').update(
-        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize })
+        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize, avoidSystems, avoidEdencom, avoidTrig })
     ).digest('hex');
 
     const cached = routeCache.get(cacheKey);
@@ -201,22 +212,25 @@ app.post('/route',
     
     const resolvedPath = path.join(__dirname, '..', process.env.NODE_ENV === 'production' ? 'routeWorker.js' : 'routeWorker.ts');
     const worker = new Worker(resolvedPath, {
-        workerData: { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize },
+        workerData: { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize, avoidSystems, avoidEdencom, avoidTrig },
         execArgv: /\.ts$/.test(resolvedPath) ? ["--require", "ts-node/register"] : undefined,
     });
 
-    spawnedWorkerThreads++;
+    spawnedWorkerThreads+=1;
+    workerGauge.set(spawnedWorkerThreads);
 
     // Set a timeout to terminate the worker after 30 seconds
     const timeout = setTimeout(() => {
         worker.terminate();
-        spawnedWorkerThreads--;
+        spawnedWorkerThreads-=1;
+        workerGauge.set(spawnedWorkerThreads);
         res.status(504).send('Route calculation timed out');
     }, 45000);
 
     worker.on('message', async (result) => {
         clearTimeout(timeout);
-        spawnedWorkerThreads--;
+        spawnedWorkerThreads-=1;
+        workerGauge.set(spawnedWorkerThreads);
         
         const { route } = result;
         const systemsWithData = await System.getData(route);
@@ -239,6 +253,7 @@ app.post('/route',
     worker.on('error', (error) => {
         clearTimeout(timeout);
         spawnedWorkerThreads--;
+        workerGauge.set(spawnedWorkerThreads);
         console.error(error);
         res.status(500).send('An error occurred while calculating the route');
     });
