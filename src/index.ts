@@ -29,20 +29,20 @@ app.use(cors(corsOptions));
 app.set('trust proxy', 1) // trust first proxy
 
 // // Initialize client.
-// const redisClient = createClient({
-//     url: `redis://${config.redisHost}:${config.redisPort}`,
-// })
-// redisClient.connect().catch(console.error)
+const redisClient = createClient({
+    url: `redis://${config.redisHost}:${config.redisPort}`,
+})
+redisClient.connect().catch(console.error)
 
 // // Initialize store.
-// const redisStore = new RedisStore({
-//     client: redisClient,
-//     prefix: "myapp:",
-// })
+const redisStore = new RedisStore({
+    client: redisClient,
+    prefix: "myapp:",
+})
 
 
 app.use(session({
-    // store: redisStore,
+    store: redisStore,
     secret: 'keyboard cat',
     resave: false,
     saveUninitialized: true,
