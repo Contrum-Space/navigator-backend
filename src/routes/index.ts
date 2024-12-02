@@ -125,7 +125,6 @@ const selectRateLimiter = (req: Request, res: Response, next: NextFunction) => {
     }
 
     const { waypoints } = req.body;
-    console.log(waypoints);
     if (waypoints && waypoints.length > 0) {
         routeCalculationLimiterWithWaypoints(req, res, next);
     } else {
