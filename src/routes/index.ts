@@ -13,6 +13,8 @@ import rateLimit from 'express-rate-limit';
 import { AppConfig } from '../config';
 import ESI from '../models/ESI';
 import System from '../models/System';
+import Metro from '../models/Metro';
+import logger from '../logger';
 
 const EveOnlineSsoStrategy = require('passport-eveonline-sso');
 const refresh = require('passport-oauth2-refresh');
@@ -175,7 +177,7 @@ app.get('/profile', (req, res) => {
 
 app.get('/logout', (req: Request, res: Response) => {
     req.session.destroy((err) => {
-        if (err) console.log(err);
+        if (err) logger.error(err);
         res.sendStatus(200);
     });
 });
@@ -187,19 +189,24 @@ app.get('/auth/callback', passport.authenticate('eveonline-sso', {
     failureRedirect: '/auth'
 }));
 
+app.get('/pochven-connection-count', async (req: Request, res: Response) => {
+    const count = (await Metro.getConnections(2116460876)).length/2;
+    res.send({ count });
+});
+
 app.post('/route', 
     skipRateLimitForCache,
     selectRateLimiter, 
     async (req: Request, res: Response) => {
     const startTime = process.hrtime();
-    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize, avoidSystems, avoidEdencom, avoidTrig } = req.body;
+    const { destination, origin, waypoints, keepWaypointsOrder, useThera, useTurnur, usePochven, minWhSize, avoidSystems, avoidEdencom, avoidTrig } = req.body;
 
     if (waypoints && waypoints.length > 3) {
         return res.status(400).send('Waypoints limit reached');
     }
     
     const cacheKey = crypto.createHash('md5').update(
-        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, minWhSize, avoidSystems, avoidEdencom, avoidTrig })
+        JSON.stringify({ origin, destination, waypoints, keepWaypointsOrder, useThera, useTurnur, usePochven, minWhSize, avoidSystems, avoidEdencom, avoidTrig })
     ).digest('hex');
 
     const cached = routeCache.get(cacheKey);
@@ -211,7 +218,7 @@ app.post('/route',
     
     const resolvedPath = path.join(__dirname, '..', process.env.NODE_ENV === 'production' ? 'routeWorker.js' : 'routeWorker.ts');
     const worker = new Worker(resolvedPath, {
-        workerData: { origin, destination, waypoints, useThera, useTurnur, keepWaypointsOrder, minWhSize, avoidSystems, avoidEdencom, avoidTrig },
+        workerData: { characterID: req.user ? (req.user as any).profile?.CharacterID : undefined, origin, destination, waypoints, useThera, useTurnur, usePochven, keepWaypointsOrder, minWhSize, avoidSystems, avoidEdencom, avoidTrig },
         execArgv: /\.ts$/.test(resolvedPath) ? ["--require", "ts-node/register"] : undefined,
     });
 
@@ -442,6 +449,12 @@ app.get('/og', async (req: Request, res: Response) => {
         console.error(e);
         return res.status(500).send('Failed to generate image');
     }
+});
+
+app.get('/subscription', checkForToken, async (req: Request, res: Response) => {
+    const { corporationId, allianceId } = await ESI.getCorporationAndAlliance((req.user as any).profile.CharacterID);
+    const subscription = await Metro.checkSubscription((req.user as any).profile.CharacterID, corporationId, allianceId);
+    res.send({ subscription });
 });
 
 const cleanupCache = () => {

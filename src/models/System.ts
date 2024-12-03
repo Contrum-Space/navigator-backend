@@ -2,6 +2,8 @@ import * as fs from 'fs/promises';
 import * as fuzzy from 'fuzzy';
 import { AppConfig } from '../config';
 import EVEScout from './Eve-Scout';
+import Metro from './Metro';
+import logger from '../logger';
 
 interface SolarSystem {
   name: string;
@@ -13,10 +15,12 @@ interface SolarSystem {
   z: number;
 }
 
+export type MaxShipSize = 'small' | 'medium' | 'large' | 'xlarge' | 'capital' | 'unknown';
+
 export interface Jump {
   from: number;
   to: number;
-  max_ship_size?: 'small' | 'medium' | 'large' | 'xlarge' | 'capital' | 'unknown';
+  max_ship_size?: MaxShipSize;
 }
 
 interface SystemData {
@@ -47,28 +51,40 @@ export interface TrigData {
   status: string;
 }
 
+export interface Wormhole {
+  Class: number;
+  Name: string;
+  Lifetime: string;
+  maxStableMass: string;
+  massRegenerationPerHour: number;
+  maxJumpMass: string;
+}
+
 type ShipSize = 'small' | 'medium' | 'large' | 'xlarge' | 'capital' | 'unknown';
 
 class System {
   public static jsonData: { solarSystems: SolarSystem[]; jumps: Jump[] } | null = null; // systems data cache
   public static systemsData: SystemData[] | null = null; // systems data cache
   public static trigData: TrigData[] | null = null; // trig data cache
+  public static wormholesData: Wormhole[] | null = null; // wormholes data cache
 
-  private static async loadData(): Promise<void> {
+  public static async loadData(): Promise<void> {
     if (System.jsonData) return;
 
     const config = AppConfig.getConfig();
 
     try {
-      const [universeData, systemsData, trigData] = await Promise.all([
+      const [universeData, systemsData, trigData, wormholesData] = await Promise.all([
         fs.readFile(config.universeDataPath, 'utf-8'),
         fs.readFile(config.systemsData, 'utf-8'),
-        fs.readFile(config.trigDataPath, 'utf-8')
+        fs.readFile(config.trigDataPath, 'utf-8'),
+        fs.readFile(config.wormholesPath, 'utf-8')
       ]);
 
       System.jsonData = JSON.parse(universeData);
       System.systemsData = JSON.parse(systemsData);
       System.trigData = JSON.parse(trigData);
+      System.wormholesData = JSON.parse(wormholesData);
     } catch (error) {
       throw new Error('Failed to load system data: ' + (error as Error).message);
     }
@@ -117,11 +133,13 @@ class System {
   }
 
   public static async getRoute(
+    characterID: number | undefined,
     origin: string,
     destination: string,
     waypoints: string[],
     useThera: boolean,
     useTurnur: boolean,
+    usePochven: boolean,
     keepWaypointOrder: boolean,
     avoidSystems: string[],
     avoidEdencom: boolean,
@@ -139,6 +157,14 @@ class System {
   
     if (useThera || useTurnur) {
       jumps.push(...await EVEScout.getConnections(useThera, useTurnur));
+    }
+    if (characterID && usePochven) {
+      logger.info(`Getting pochven connections for character ${characterID}`, {
+        characterID,
+        usePochven
+      });
+      const pochvenConnections = await Metro.getConnections(characterID);
+      jumps.push(...pochvenConnections);
     }
   
     const getSystemId = (name: string) =>

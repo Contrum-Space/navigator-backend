@@ -34,7 +34,7 @@ if (process.env.NODE_ENV === 'production') {
     const redisClient = createClient({
         url: `redis://${config.redisHost}:${config.redisPort}`,
     });
-    redisClient.connect().catch(console.error);
+    redisClient.connect().catch(logger.error);
 
     sessionStore = new RedisStore({
         client: redisClient,

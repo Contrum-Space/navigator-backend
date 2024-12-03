@@ -14,6 +14,7 @@ interface Config {
   redisHost: string;
   redisPort: number;
   trigDataPath: string;
+  wormholesPath: string;
 }
 
 export class AppConfig {
@@ -27,6 +28,7 @@ export class AppConfig {
         universeDataPath: process.env.UNIVERSE_DATA_JSON || path.join(__dirname, '..', '..', 'universe-pretty.json'),
         systemsData: process.env.SYSTEMS_DATA_JSON || path.join(__dirname, '..', '..', 'systems-data.json'),
         trigDataPath: process.env.TRIG_DATA_JSON || path.join(__dirname, '..', '..', 'trig.json'),
+        wormholesPath: process.env.WORMHOLES_JSON || path.join(__dirname, '..', '..', 'wormholes.json'),
         port: parseInt(process.env.PORT || '8000', 10),
         clientId: process.env.CLIENTID || 'fd3204e02fb84bcdb49003ee97fb75e2 ',
         secretKey: process.env.SECRETKEY || 'VNrf4ZOTIdOeNQFmwaxDZlKyRzS9QsOTi7DT0zt8',

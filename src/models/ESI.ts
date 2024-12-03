@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as fs from 'fs';
 import {AppConfig} from '../config';
+import logger from '../logger';
 
 interface GetUniverseSystemKillsOk {
     npc_kills: number;
@@ -64,9 +65,9 @@ class ESI {
             const config = AppConfig.getConfig();
             fs.writeFileSync(config.systemsData, jsonOutput);
 
-            console.log('System data stored in systems_data.json');
+            logger.info('System data stored in systems_data.json');
         } catch (error: any) {
-            console.error('Error fetching or storing system data:', error.message);
+            logger.error('Error fetching or storing system data:', error.message);
         }
     }
 
@@ -79,7 +80,7 @@ class ESI {
 
             return routesResponse.data
         } catch (error: any) {
-            console.error('Error fetching route:', error.message);
+            logger.error('Error fetching route:', error.message);
             return [];
         }
     }
@@ -114,6 +115,15 @@ class ESI {
             }
         });
         return apiResponse.data.solar_system_id;
+    }
+
+    static async getCorporationAndAlliance(characterId: number): Promise<{corporationId: number, allianceId: number}   > {
+        const apiResponse = await axios.get(`${ESI.basePath}characters/${characterId}/`, {
+            headers: {
+                "Content-Type": "application/json",
+            }
+        });
+        return { corporationId: apiResponse.data.corporation_id, allianceId: apiResponse.data.alliance_id };
     }
 }
 

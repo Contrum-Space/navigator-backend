@@ -1,0 +1,659 @@
+[{
+    "Class": 1,
+    "Name": "E004",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 1,
+    "Name": "H121",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 1,
+    "Name": "P060",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 1,
+    "Name": "Q317",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 1,
+    "Name": "V301",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 1,
+    "Name": "Y790",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 1,
+    "Name": "Z647",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 1,
+    "Name": "Z971",
+    "Lifetime": "16",
+    "maxStableMass": "100000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 2,
+    "Name": "C125",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 2,
+    "Name": "D364",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 2,
+    "Name": "D382",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 2,
+    "Name": "G024",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 2,
+    "Name": "I182",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 2,
+    "Name": "L005",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 2,
+    "Name": "N766",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 2,
+    "Name": "R943",
+    "Lifetime": "16",
+    "maxStableMass": "750000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 3,
+    "Name": "C247",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 3,
+    "Name": "L477",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 3,
+    "Name": "M267",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 3,
+    "Name": "N968",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 3,
+    "Name": "O477",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 3,
+    "Name": "O883",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 3,
+    "Name": "X702",
+    "Lifetime": "24",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 3,
+    "Name": "Z006",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 4,
+    "Name": "E175",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 4,
+    "Name": "M001",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 4,
+    "Name": "M609",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 4,
+    "Name": "O128",
+    "Lifetime": "24",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 4,
+    "Name": "R081",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 4,
+    "Name": "T405",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 4,
+    "Name": "X877",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 4,
+    "Name": "Y683",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 4,
+    "Name": "Z457",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 5,
+    "Name": "C008",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 5,
+    "Name": "H296",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 5,
+    "Name": "H900",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 5,
+    "Name": "L614",
+    "Lifetime": "24",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 5,
+    "Name": "M555",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 5,
+    "Name": "N062",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 5,
+    "Name": "N432",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 5,
+    "Name": "N770",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 5,
+    "Name": "V911",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 6,
+    "Name": "A982",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 6,
+    "Name": "B041",
+    "Lifetime": "48",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 6,
+    "Name": "G008",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 6,
+    "Name": "R474",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 6,
+    "Name": "S804",
+    "Lifetime": "24",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 6,
+    "Name": "U319",
+    "Lifetime": "48",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 6,
+    "Name": "U574",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 6,
+    "Name": "V753",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 6,
+    "Name": "W237",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 7,
+    "Name": "A641",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 7,
+    "Name": "B274",
+    "Lifetime": "24",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 7,
+    "Name": "B449",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 7,
+    "Name": "B520",
+    "Lifetime": "48",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 7,
+    "Name": "D792",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 7,
+    "Name": "D845",
+    "Lifetime": "24",
+    "maxStableMass": "5000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 7,
+    "Name": "N110",
+    "Lifetime": "24",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 7,
+    "Name": "Q063",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 7,
+    "Name": "S047",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 8,
+    "Name": "A239",
+    "Lifetime": "24",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 8,
+    "Name": "C140",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 8,
+    "Name": "C391",
+    "Lifetime": "48",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 8,
+    "Name": "J244",
+    "Lifetime": "24",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 8,
+    "Name": "N290",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 8,
+    "Name": "N944",
+    "Lifetime": "24",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 8,
+    "Name": "R051",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 8,
+    "Name": "U210",
+    "Lifetime": "24",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 8,
+    "Name": "V898",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 9,
+    "Name": "C248",
+    "Lifetime": "16",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 9,
+    "Name": "E545",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 9,
+    "Name": "E587",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 9,
+    "Name": "K329",
+    "Lifetime": "16",
+    "maxStableMass": "5000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 9,
+    "Name": "K346",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 9,
+    "Name": "Q003",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 9,
+    "Name": "S199",
+    "Lifetime": "16",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 9,
+    "Name": "V283",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 9,
+    "Name": "X450",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 9,
+    "Name": "Z060",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 9,
+    "Name": "Z142",
+    "Lifetime": "16",
+    "maxStableMass": "3300000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "2000000000"
+}, {
+    "Class": 12,
+    "Name": "F135",
+    "Lifetime": "16",
+    "maxStableMass": "750000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 12,
+    "Name": "F353",
+    "Lifetime": "16",
+    "maxStableMass": "100000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 12,
+    "Name": "L031",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 12,
+    "Name": "M164",
+    "Lifetime": "16",
+    "maxStableMass": "2000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "1000000000"
+}, {
+    "Class": 12,
+    "Name": "T458",
+    "Lifetime": "16",
+    "maxStableMass": "500000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "62000000"
+}, {
+    "Class": 13,
+    "Name": "A009",
+    "Lifetime": "16",
+    "maxStableMass": "3000000000",
+    "massRegenerationPerHour": "3000000000",
+    "maxJumpMass": "5000000"
+}, {
+    "Class": 14,
+    "Name": "S877",
+    "Lifetime": "16",
+    "maxStableMass": "750000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 15,
+    "Name": "B735",
+    "Lifetime": "16",
+    "maxStableMass": "750000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 16,
+    "Name": "V928",
+    "Lifetime": "16",
+    "maxStableMass": "750000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 17,
+    "Name": "C414",
+    "Lifetime": "16",
+    "maxStableMass": "750000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 18,
+    "Name": "R259",
+    "Lifetime": "16",
+    "maxStableMass": "750000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 25,
+    "Name": "C729",
+    "Lifetime": "12",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "410000000"
+}, {
+    "Class": 25,
+    "Name": "F216",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}, {
+    "Class": 25,
+    "Name": "U372",
+    "Lifetime": "16",
+    "maxStableMass": "1000000000",
+    "massRegenerationPerHour": 0,
+    "maxJumpMass": "375000000"
+}]
